@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endor Lead Tool</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b22; --panel2:#1e242d; --border:#2a323d;
+    --text:#e6eaf0; --muted:#8b97a7; --accent:#4f8cff;
+    --sicak:#e5484d; --orta:#f5a623; --zayif:#8b97a7; --ele:#4b5563;
+    --green:#2fbf71; --ai:#6366f1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  header{display:flex;align-items:center;gap:20px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--panel)}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  .counters{display:flex;gap:18px;margin-left:8px}
+  .counter{font-size:12px;color:var(--muted)}
+  .counter b{display:block;font-size:18px;color:var(--text)}
+  .spacer{flex:1}
+  button,.btn{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    padding:7px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dropdown{position:relative;display:inline-block}
+  .dropdown-menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel2);
+    border:1px solid var(--border);border-radius:8px;min-width:180px;padding:6px;z-index:50;
+    display:none;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .dropdown-menu.open{display:block}
+  .dropdown-menu button{display:block;width:100%;text-align:left;border:none;background:none;
+    padding:8px 10px;border-radius:6px}
+  .dropdown-menu button:hover{background:var(--panel)}
+  .dropdown-menu .muted-item{color:var(--muted);font-size:12px;padding:6px 10px}
+  .toolbar{display:flex;gap:10px;align-items:center;padding:10px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  select,input[type=text],input[type=search]{background:var(--panel2);color:var(--text);
+    border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:13px}
+  input[type=search]{min-width:220px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{color:var(--muted);font-weight:500;font-size:12px;position:sticky;top:0;background:var(--panel);cursor:default}
+  th.sortable{cursor:pointer;user-select:none}
+  th.sortable:hover{color:var(--text)}
+  th.sortable .arr{opacity:.4;font-size:10px}
+  th.sortable.active{color:var(--accent)}
+  th.sortable.active .arr{opacity:1}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:var(--panel)}
+  td.editable{cursor:text}
+  td[contenteditable]:focus{outline:1px solid var(--accent);background:var(--panel2)}
+  .tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#fff}
+  .SICAK{background:var(--sicak)} .ORTA{background:var(--orta)} .ZAYIF{background:var(--zayif)} .ELE{background:var(--ele)}
+  .status-pill{font-size:11px;color:var(--muted);border:1px solid var(--border);padding:2px 8px;border-radius:10px}
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { border-color:var(--accent); box-shadow: 0 0 0 0 rgba(79,140,255,0.4); } 50% { border-color:var(--green); box-shadow: 0 0 10px 2px rgba(47,191,113,0.4); } }
+  /* off-canvas */
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none}
+  #panel{position:fixed;top:0;right:0;height:100%;width:760px;max-width:90vw;background:var(--panel);
+    border-left:1px solid var(--border);transform:translateX(100%);transition:.2s;overflow-y:auto;padding:24px}
+  #panel.open{transform:translateX(0)}
+  #overlay.open{display:block}
+  #panel h2{font-size:16px;margin:0 0 4px}
+  .section{margin-top:18px}
+  .section h3{font-size:12px;text-transform:uppercase;color:var(--muted);margin:0 0 8px;letter-spacing:.04em}
+  .kv{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed var(--border)}
+  .kv span:first-child{color:var(--muted)}
+  .note{padding:8px 0;border-bottom:1px solid var(--border)}
+  .note.system{color:var(--muted);font-style:italic}
+  .note .meta{font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+  .note .del{color:var(--sicak);cursor:pointer;font-size:11px}
+  .raw{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;
+    max-height:180px;overflow:auto;white-space:pre-wrap;font-size:12px;color:var(--muted)}
+  .close{position:absolute;top:14px;right:16px;font-size:20px;color:var(--muted);cursor:pointer}
+  .muted{color:var(--muted)}
+  dialog{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:10px;width:460px}
+  dialog textarea{width:100%;height:120px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px}
+  .row{display:flex;gap:8px;align-items:center;margin-top:10px}
+  /* MultiSelect */
+  .ms-container{position:relative;display:inline-block}
+  .ms-trigger{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none;white-space:nowrap}
+  .ms-trigger:hover,.ms-trigger.open{border-color:var(--accent)}
+  .ms-menu{position:absolute;top:calc(100% + 4px);left:0;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:6px;z-index:100;min-width:190px;max-height:280px;overflow-y:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+  .ms-menu.open{display:block}
+  .ms-header{display:flex;justify-content:space-between;padding:4px 6px 6px;border-bottom:1px solid var(--border);margin-bottom:4px;font-size:11px;color:var(--muted)}
+  .ms-header span{cursor:pointer;color:var(--accent)}
+  .ms-header span:hover{text-decoration:underline}
+  .ms-option{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:13px;color:var(--text);user-select:none}
+  .ms-option:hover{background:var(--panel)}
+  .ms-option input[type=checkbox]{cursor:pointer;margin:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Endor Lead Tool</h1>
+  <div class="counters">
+    <div class="counter"><b id="c_total">0</b>toplam</div>
+    <div class="counter"><b id="c_sicak">0</b>SICAK</div>
+    <div class="counter"><b id="c_emailed">0</b>mail atılan</div>
+    <div class="counter"><b id="c_replied">0</b>cevap gelen</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="dropdown">
+    <button class="btn" onclick="toggleSources(event)">◆ Kaynaklar ▾</button>
+    <div class="dropdown-menu" id="sourcesMenu"></div>
+  </div>
+  <a class="btn" href="/settings">⚙ Ayarlar</a>
+</header>
+
+<div class="toolbar">
+  <button class="btn-primary" onclick="addDialog.showModal()">+ Lead ekle</button>
+  <button onclick="runImpressum()">⛏ Impressum çek</button>
+  <label class="muted" title="Impressum çekerken elenmiş firmaları da dahil et"><input type="checkbox" id="chkIncludeEliminated"> elenenleri de çek</label>
+  <button onclick="runBatchAi()" style="border-color:var(--ai);color:var(--ai)">🤖 Batch AI Değerlendir</button>
+  <button id="btnActiveWorker" onclick="progressDialog.showModal()" style="display:none;align-items:center;gap:6px;border-color:var(--accent);color:var(--accent);animation:pulse 2s infinite">⏳ Canlı İlerleme (<span id="btnWorkerCount">0/0</span>)</button>
+  <button onclick="location='/api/export.csv'">↓ CSV indir</button>
+  <label class="btn" style="cursor:pointer">↑ CSV yükle
+    <input type="file" id="csvFile" accept=".csv" hidden onchange="importCsv(this)">
+  </label>
+  <span style="width:1px;height:22px;background:var(--border)"></span>
+  <div class="ms-container" id="msStatusContainer"></div>
+  <div class="ms-container" id="msVerdictContainer"></div>
+  <div class="ms-container" id="msCountryContainer"></div>
+  <div class="ms-container" id="msImpressumContainer"></div>
+  <div class="ms-container" id="msDetailContainer"></div>
+  <div class="ms-container" id="msAiStatusContainer"></div>
+  <div class="ms-container" id="msDataContainer"></div>
+  <label class="muted"><input type="checkbox" id="fHidden" onchange="currentPage=1;load()"> elenenleri göster</label>
+  <label class="muted"><input type="checkbox" id="fHideComp" onchange="currentPage=1;load()"> rakipleri gizle</label>
+  <label class="muted" style="color:var(--ai)"><input type="checkbox" id="fAiDivergent" onchange="currentPage=1;load()"> ⚠ AI ayrışanları göster</label>
+  <div class="spacer"></div>
+  <input type="search" id="search" placeholder="ajans / domain ara…" oninput="debouncedLoad()">
+</div>
+
+<!-- Batch Action Bar -->
+<div id="batchBar" style="display:none;align-items:center;gap:12px;padding:8px 18px;background:var(--panel2);border-bottom:1px solid var(--accent)">
+  <span style="font-weight:600;color:var(--accent);font-size:13px"><b id="selectedCount">0</b> kayıt seçildi:</span>
+  <button onclick="runBatchImpressum()">⛏ Seçilenlerin Impressum'unu Çek</button>
+  <button onclick="runBatchClutchDetails()">◆ Seçilenlerin Clutch Detayını Çek</button>
+  <button onclick="runBatchAiSelected()" style="border-color:var(--ai);color:var(--ai)">🤖 Seçilenleri AI ile Değerlendir (Batch)</button>
+  <div style="display:flex;align-items:center;gap:6px">
+    <span class="muted" style="font-size:12px">Toplu Durum Değiştir:</span>
+    <select id="batchStatusSelect" onchange="applyBatchStatus(this.value)">
+      <option value="">Seçiniz…</option>
+      <option value="yeni">yeni</option>
+      <option value="araştırıldı">araştırıldı</option>
+      <option value="elendi">elendi</option>
+      <option value="mail gitti">mail gitti</option>
+      <option value="takip edildi">takip edildi</option>
+      <option value="cevap var">cevap var</option>
+      <option value="red">red</option>
+      <option value="aktarıldı">aktarıldı</option>
+    </select>
+  </div>
+  <div class="spacer"></div>
+  <button onclick="clearSelection()" style="font-size:12px;padding:4px 8px">Seçimi Temizle</button>
+</div>
+
+<table>
+  <thead><tr>
+    <th style="width:36px"><input type="checkbox" id="chkSelectAll" onchange="toggleSelectAll(this.checked)" title="Sayfadaki Tümünü Seç / Kaldır"></th>
+    <th class="sortable" data-col="name">Ajans</th>
+    <th class="sortable" data-col="location">Konum</th>
+    <th class="sortable" data-col="rate_low">Saatlik</th>
+    <th class="sortable" data-col="size_low">Ekip</th>
+    <th class="sortable" data-col="score">Kural Skoru</th>
+    <th class="sortable" data-col="ai_score">AI Skoru</th>
+    <th class="sortable" data-col="contact_name">Kurucu</th>
+    <th class="sortable" data-col="contact_email">E-posta</th>
+    <th class="sortable" data-col="status">Durum</th>
+    <th class="sortable" data-col="created_at">Eklendi</th>
+  </tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<div class="pagination-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--border)">
+  <div class="muted" style="font-size:13px">Toplam <b id="lblFilteredCount" style="color:var(--text)">0</b> kayıttan <span id="lblPageRange">0-0</span> arası gösteriliyor</div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <label class="muted" style="font-size:13px">Sayfa başı: 
+      <select id="pageSize" onchange="currentPage=1;render()">
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+        <option value="250">250</option>
+        <option value="all">Tümü</option>
+      </select>
+    </label>
+    <button onclick="prevPage()">‹ Önceki</button>
+    <span id="lblPageNum" class="muted" style="font-size:13px">Sayfa 1 / 1</span>
+    <button onclick="nextPage()">Sonraki ›</button>
+  </div>
+</div>
+
+<!-- Lead ekle dialog -->
+<dialog id="addDialog">
+  <h2 style="margin:0 0 10px">Lead ekle</h2>
+  <p class="muted" style="margin:0 0 8px">Ajansın kendi web sitesini gir — tek tek ya da her satıra bir domain (toplu yapıştırma).</p>
+  <textarea id="domains" placeholder="agentur-x.de&#10;studio-y.nl&#10;byra-z.se"></textarea>
+  <div class="row" style="justify-content:flex-end">
+    <button onclick="addDialog.close()">Vazgeç</button>
+    <button class="btn-primary" onclick="submitDomains()">Ekle</button>
+  </div>
+</dialog>
+
+<!-- Clutch dialog -->
+<dialog id="clutchDialog">
+  <h2 style="margin:0 0 10px">◆ Clutch</h2>
+  <p class="muted" style="margin:0 0 6px">1) Filtre URL'siyle listing crawl (sayfa sayfa, 60–90 sn bekleme, son sayfaya kadar).</p>
+  <input type="text" id="clutchUrl" placeholder="https://clutch.co/de/web-developers?hourly_rate=100-149" style="width:100%">
+  <div class="row"><button class="btn-primary" onclick="crawlListing()">Listing crawl başlat</button></div>
+  <p class="muted" style="margin:14px 0 6px">2) Toplanan ajansların profil detaylarını çek (servis %, merkez, rakip sinyali).</p>
+  <label class="muted" style="display:flex;align-items:center;gap:6px;margin:4px 0 8px"><input type="checkbox" id="chkClutchIncludeEliminated"> Elenmiş firmaların da detayını çek</label>
+  <div class="row"><button onclick="crawlDetails()">Bekleyen detayları çek</button></div>
+  <hr style="border-color:var(--border);margin:16px 0">
+  <p class="muted" style="margin:0 0 6px">Cloudflare engellerse: sayfayı tarayıcıda aç → <b>Ctrl+S → "HTML Only"</b> → buradan yükle.</p>
+  <div class="row">
+    <label class="btn" style="cursor:pointer">↑ Listing HTML (Çoklu)
+      <input type="file" accept=".html,.htm" multiple hidden onchange="uploadClutch(this,'listing')"></label>
+    <label class="btn" style="cursor:pointer">↑ Detay HTML (Çoklu)
+      <input type="file" accept=".html,.htm" multiple hidden onchange="uploadClutch(this,'detail')"></label>
+  </div>
+  <div class="row" style="justify-content:flex-end;margin-top:14px"><button onclick="clutchDialog.close()">Kapat</button></div>
+</dialog>
+
+<!-- Progress Dialog -->
+<dialog id="progressDialog" style="width:480px;padding:20px;border-radius:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <h3 id="progressTitle" style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px">
+      <span id="progressSpinner" style="display:inline-block;width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite"></span>
+      <span id="progressJobName">İşlem Sürüyor</span>
+    </h3>
+    <span class="close" onclick="progressDialog.close()">×</span>
+  </div>
+
+  <div style="background:var(--bg);height:10px;border-radius:5px;overflow:hidden;margin-bottom:14px;border:1px solid var(--border)">
+    <div id="progressBar" style="background:linear-gradient(90deg, #4f8cff, #2fbf71);height:100%;width:0%;transition:width 0.3s"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;text-align:center">
+    <div style="background:var(--panel2);padding:10px;border-radius:8px;border:1px solid var(--border)">
+      <span class="muted" style="font-size:11px;display:block">İşlenen</span>
+      <b id="pDone" style="font-size:16px;color:var(--green)">0</b> / <span id="pTotal">0</span>
+    </div>
+    <div style="background:var(--panel2);padding:10px;border-radius:8px;border:1px solid var(--border)">
+      <span class="muted" style="font-size:11px;display:block">İlerleme</span>
+      <b id="pPercent" style="font-size:16px;color:var(--accent)">%0</b>
+    </div>
+    <div style="background:var(--panel2);padding:10px;border-radius:8px;border:1px solid var(--border)">
+      <span class="muted" style="font-size:11px;display:block">Hata</span>
+      <b id="pErrors" style="font-size:16px;color:var(--sicak)">0</b>
+    </div>
+  </div>
+
+  <p id="progressSubText" class="muted" style="font-size:12px;margin:0 0 14px;text-align:center">
+    Arka plan işlemi devam ediyor... Her ~20-30 saniyede 1 kayıt işlenmektedir.
+  </p>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <button onclick="stopWorker()" style="background:#dc2626;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">🛑 İşlemi İptal Et</button>
+    <button onclick="progressDialog.close()">Kapat (Arka Planda Çalışsın)</button>
+  </div>
+</dialog>
+
+<!-- Off-canvas -->
+<div id="overlay" onclick="closePanel()"></div>
+<div id="panel"><span class="close" onclick="closePanel()">×</span><div id="panelBody"></div></div>
+
+<script>
+const STATUSES = ["yeni","araştırıldı","elendi","mail gitti","takip edildi","cevap var","firma reddetti","kazanıldı"];
+let LEADS = [], countries = new Set();
+// varsayılan sıralama: en son eklenen en üstte
+let sortState = {col:"created_at", dir:"desc"};
+const NUMERIC_COLS = new Set(["rate_low","size_low","score","ai_score","created_at"]);
+
+function renderAiBadge(l) {
+  if (l.ai_status === 'done' && l.ai_score != null) {
+    const isDivergent = l.score != null && Math.abs(l.ai_score - l.score) >= 25;
+    const badgeHtml = `<span class="tag" style="background:var(--ai);font-size:11px" title="${esc(l.ai_comment||'')}">${l.ai_score} ${esc(l.ai_label||'')}</span>`;
+    const divHtml = isDivergent ? ' <span class="tag SICAK" style="font-size:10px" title="AI skoru ile kural skoru arasında ≥25 puan fark var!">⚠ AI≠Kural</span>' : '';
+    return badgeHtml + divHtml;
+  }
+  if (l.ai_status === 'error') return '<span class="tag ELE" style="font-size:10px" title="AI değerlendirmesi hatayla sonuçlandı">AI ✕</span>';
+  return '<span class="muted" style="font-size:12px">—</span>';
+}
+
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+const debouncedLoad = debounce(()=>load(),250);
+
+function sortBy(col){
+  if(sortState.col===col){ sortState.dir = sortState.dir==="asc"?"desc":"asc"; }
+  else { sortState = {col, dir: NUMERIC_COLS.has(col)?"desc":"asc"}; }
+  render();
+}
+function applySort(list){
+  const {col,dir} = sortState, sign = dir==="asc"?1:-1;
+  const num = NUMERIC_COLS.has(col) && col!=="created_at";
+  return list.slice().sort((a,b)=>{
+    let x = a[col], y = b[col];
+    const isEmptyX = x == null || (typeof x === "string" && x.trim() === "");
+    const isEmptyY = y == null || (typeof y === "string" && y.trim() === "");
+
+    if (isEmptyX && isEmptyY) return 0;
+    if (isEmptyX) return 1;        // Boş olanlar (null, undefined, "") her zaman en sona
+    if (isEmptyY) return -1;
+    if (num) { return (Number(x) - Number(y)) * sign; }
+    return String(x).localeCompare(String(y), "tr") * sign;  // created_at ISO ve metinler
+  });
+}
+function updateSortIndicators(){
+  document.querySelectorAll("th.sortable").forEach(th=>{
+    const active = th.dataset.col===sortState.col;
+    th.classList.toggle("active",active);
+    const arrow = active ? (sortState.dir==="asc"?"▲":"▼") : "▲▼";
+    th.innerHTML = `${th.dataset.label} <span class="arr">${arrow}</span>`;
+  });
+}
+function initSort(){
+  document.querySelectorAll("th.sortable").forEach(th=>{
+    th.dataset.label = th.textContent.trim();   // temel etiketi bir kez sakla
+    th.addEventListener("click",()=>sortBy(th.dataset.col));
+  });
+}
+
+class MultiSelect {
+  constructor(containerId, options, title, onChange) {
+    this.container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    this.options = options || [];
+    this.title = title;
+    this.onChange = onChange;
+    this.selected = new Set();
+    this.render();
+  }
+
+  setOptions(options) {
+    this.options = options || [];
+    this.renderOptions();
+    this.updateTriggerText();
+  }
+
+  getSelected() {
+    return Array.from(this.selected);
+  }
+
+  setSelected(arr) {
+    this.selected = new Set(arr);
+    this.updateTriggerText();
+    this.updateCheckboxes();
+  }
+
+  render() {
+    if (!this.container) return;
+    this.container.innerHTML = `
+      <div class="ms-trigger">
+        <span class="ms-label"></span>
+        <span style="font-size:10px;opacity:0.6">▾</span>
+      </div>
+      <div class="ms-menu">
+        <div class="ms-header">
+          <span class="ms-all">Tümünü Seç</span>
+          <span class="ms-clear">Temizle</span>
+        </div>
+        <div class="ms-options"></div>
+      </div>
+    `;
+
+    this.triggerEl = this.container.querySelector('.ms-trigger');
+    this.labelEl = this.container.querySelector('.ms-label');
+    this.menuEl = this.container.querySelector('.ms-menu');
+    this.optionsEl = this.container.querySelector('.ms-options');
+
+    this.renderOptions();
+    this.updateTriggerText();
+
+    this.triggerEl.onclick = (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.ms-menu.open').forEach(m => {
+        if (m !== this.menuEl) m.classList.remove('open');
+      });
+      document.querySelectorAll('.ms-trigger.open').forEach(t => {
+        if (t !== this.triggerEl) t.classList.remove('open');
+      });
+      this.menuEl.classList.toggle('open');
+      this.triggerEl.classList.toggle('open');
+    };
+
+    this.container.querySelector('.ms-all').onclick = (e) => {
+      e.stopPropagation();
+      this.options.forEach(o => this.selected.add(o.value));
+      this.updateCheckboxes();
+      this.updateTriggerText();
+      if (this.onChange) this.onChange(this.getSelected());
+    };
+
+    this.container.querySelector('.ms-clear').onclick = (e) => {
+      e.stopPropagation();
+      this.selected.clear();
+      this.updateCheckboxes();
+      this.updateTriggerText();
+      if (this.onChange) this.onChange(this.getSelected());
+    };
+  }
+
+  renderOptions() {
+    if (!this.optionsEl) return;
+    this.optionsEl.innerHTML = this.options.map(o => `
+      <label class="ms-option" onclick="event.stopPropagation()">
+        <input type="checkbox" value="${esc(o.value)}" ${this.selected.has(o.value)?'checked':''}>
+        <span>${esc(o.label)}</span>
+      </label>
+    `).join('');
+
+    this.optionsEl.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+      chk.onchange = (e) => {
+        const val = e.target.value;
+        if (e.target.checked) this.selected.add(val);
+        else this.selected.delete(val);
+        this.updateTriggerText();
+        if (this.onChange) this.onChange(this.getSelected());
+      };
+    });
+  }
+
+  updateCheckboxes() {
+    if (!this.optionsEl) return;
+    this.optionsEl.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+      chk.checked = this.selected.has(chk.value);
+    });
+  }
+
+  updateTriggerText() {
+    if (!this.labelEl) return;
+    if (this.selected.size === 0 || this.selected.size === this.options.length) {
+      this.labelEl.textContent = `${this.title}: Hepsi`;
+    } else if (this.selected.size <= 2) {
+      const labels = Array.from(this.selected).map(val => {
+        const opt = this.options.find(o => o.value === val);
+        return opt ? opt.label : val;
+      });
+      this.labelEl.textContent = `${this.title}: ${labels.join(', ')}`;
+    } else {
+      this.labelEl.textContent = `${this.title} (${this.selected.size})`;
+    }
+  }
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.ms-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.ms-trigger.open').forEach(t => t.classList.remove('open'));
+});
+
+let msStatus, msVerdict, msCountry, msImpressum, msDetail, msAiStatus, msData;
+
+function initMultiSelects() {
+  const triggerLoad = () => { currentPage = 1; load(); };
+
+  msStatus = new MultiSelect('msStatusContainer', [
+    { value: "yeni", label: "yeni" },
+    { value: "araştırıldı", label: "araştırıldı" },
+    { value: "elendi", label: "elendi" },
+    { value: "mail gitti", label: "mail gitti" },
+    { value: "takip edildi", label: "takip edildi" },
+    { value: "cevap var", label: "cevap var" },
+    { value: "firma reddetti", label: "firma reddetti" },
+    { value: "kazanıldı", label: "kazanıldı" }
+  ], "Durum", triggerLoad);
+
+  msVerdict = new MultiSelect('msVerdictContainer', [
+    { value: "SICAK", label: "SICAK" },
+    { value: "ORTA", label: "ORTA" },
+    { value: "ZAYIF", label: "ZAYIF" },
+    { value: "ELE", label: "ELE" }
+  ], "Skor", triggerLoad);
+
+  msCountry = new MultiSelect('msCountryContainer', [], "Ülke", triggerLoad);
+
+  msImpressum = new MultiSelect('msImpressumContainer', [
+    { value: "done", label: "Çekildi ✓" },
+    { value: "pending", label: "Bekliyor" },
+    { value: "manual", label: "Manuel ⚡" },
+    { value: "error", label: "Hatalı ✕" }
+  ], "Impressum", triggerLoad);
+
+  msDetail = new MultiSelect('msDetailContainer', [
+    { value: "done", label: "Çekildi ✓" },
+    { value: "pending", label: "Bekliyor" },
+    { value: "blocked", label: "Engellendi ⛔" }
+  ], "Detay", triggerLoad);
+
+  msAiStatus = new MultiSelect('msAiStatusContainer', [
+    { value: "done", label: "Değerlendirildi ✓" },
+    { value: "pending", label: "Bekliyor" },
+    { value: "error", label: "Hatalı ✕" }
+  ], "AI", triggerLoad);
+
+  msData = new MultiSelect('msDataContainer', [
+    { value: "has_email", label: "E-posta Var" },
+    { value: "has_contact", label: "Kurucu / Kişi Var" },
+    { value: "has_phone", label: "Telefon Var" },
+    { value: "not_emailed", label: "Mail Atılmayanlar" },
+    { value: "personal_email", label: "Kişisel E-posta (isim@)" }
+  ], "Veri / İletişim", triggerLoad);
+}
+
+async function load(){
+  const p = new URLSearchParams();
+  if (msStatus && msStatus.getSelected().length && msStatus.getSelected().length < msStatus.options.length) {
+    p.set("status", msStatus.getSelected().join(","));
+  }
+  if (msVerdict && msVerdict.getSelected().length && msVerdict.getSelected().length < msVerdict.options.length) {
+    p.set("verdict", msVerdict.getSelected().join(","));
+  }
+  if (msCountry && msCountry.getSelected().length && msCountry.getSelected().length < msCountry.options.length) {
+    p.set("country", msCountry.getSelected().join(","));
+  }
+  if (msImpressum && msImpressum.getSelected().length && msImpressum.getSelected().length < msImpressum.options.length) {
+    p.set("impressum", msImpressum.getSelected().join(","));
+  }
+  if (msDetail && msDetail.getSelected().length && msDetail.getSelected().length < msDetail.options.length) {
+    p.set("detail", msDetail.getSelected().join(","));
+  }
+  if (msAiStatus && msAiStatus.getSelected().length && msAiStatus.getSelected().length < msAiStatus.options.length) {
+    p.set("ai_status", msAiStatus.getSelected().join(","));
+  }
+  if (msData && msData.getSelected().length && msData.getSelected().length < msData.options.length) {
+    p.set("data_filter", msData.getSelected().join(","));
+  }
+  if (fHidden.checked) p.set("show_hidden", "1");
+  if (search.value.trim()) p.set("q", search.value.trim());
+
+  const r = await fetch("/api/leads?" + p); LEADS = await r.json();
+  render(); loadCounters(); buildCountryFilter();
+}
+
+async function loadCounters(){
+  try {
+    const c = await (await fetch("/api/counters")).json();
+    document.getElementById("c_total").textContent = c.total;
+    document.getElementById("c_sicak").textContent = c.sicak;
+    document.getElementById("c_emailed").textContent = c.emailed;
+    document.getElementById("c_replied").textContent = c.replied;
+  } catch(e) { console.error("loadCounters error:", e); }
+}
+
+function buildCountryFilter(){
+  let added = false;
+  LEADS.forEach(l => {
+    if(l.country && !countries.has(l.country)) {
+      countries.add(l.country);
+      added = true;
+    }
+  });
+  if(added && msCountry) {
+    const opts = [...countries].sort().map(c => ({ value: c, label: c }));
+    msCountry.setOptions(opts);
+  }
+}
+
+function esc(s){return (s??"").toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function fmtDate(s){return s?String(s).slice(0,10):'—'}
+
+function getStatusPillStyle(status) {
+  switch (status) {
+    case 'yeni':
+      return 'background:rgba(148,163,184,0.15);color:#cbd5e1;border:1px solid rgba(148,163,184,0.35);font-weight:600;';
+    case 'araştırıldı':
+      return 'background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.4);font-weight:600;';
+    case 'mail gitti':
+      return 'background:rgba(129,140,248,0.18);color:#818cf8;border:1px solid rgba(129,140,248,0.45);font-weight:600;';
+    case 'takip edildi':
+      return 'background:rgba(251,191,36,0.18);color:#fbbf24;border:1px solid rgba(251,191,36,0.45);font-weight:600;';
+    case 'cevap var':
+      return 'background:rgba(52,211,153,0.22);color:#34d399;border:1px solid rgba(52,211,153,0.5);font-weight:700;';
+    case 'kazanıldı':
+      return 'background:rgba(16,185,129,0.25);color:#10b981;border:1px solid #10b981;font-weight:700;';
+    case 'firma reddetti':
+      return 'background:rgba(248,113,113,0.18);color:#f87171;border:1px solid rgba(248,113,113,0.4);font-weight:600;';
+    case 'elendi':
+      return 'background:rgba(156,163,175,0.15);color:#9ca3af;border:1px solid rgba(156,163,175,0.3);font-weight:600;';
+    default:
+      return 'background:var(--panel2);color:var(--muted);border:1px solid var(--border);';
+  }
+}
+
+function renderImpBadge(l) {
+  if (l.impressum_status === 'done') return ' <span class="tag" style="background:var(--green);font-size:10px" title="Impressum Çekildi">imp ✓</span>';
+  if (l.impressum_status === 'error') return ' <span class="tag ELE" style="font-size:10px" title="Impressum Hatalı">imp ✕</span>';
+  if (l.impressum_status === 'manual') return ' <span class="tag ORTA" style="font-size:10px" title="Impressum Kontrol">imp ⚡</span>';
+  return '';
+}
+function renderDetailBadge(l) {
+  if (l.detail_status === 'done') return ' <span class="tag" style="background:var(--accent);font-size:10px" title="Profil Detayı Çekildi">detay ✓</span>';
+  if (l.detail_status === 'blocked') return ' <span class="tag ORTA" style="font-size:10px" title="Cloudflare Engeli">detay ⛔</span>';
+  return '';
+}
+
+let currentPage = 1;
+function prevPage() { if (currentPage > 1) { currentPage--; render(); } }
+function nextPage() { currentPage++; render(); }
+
+function render(){
+  let data = LEADS.slice();
+  if (fHideComp.checked) data = data.filter(l => !l.is_competitor);
+
+  if (msStatus && msStatus.getSelected().length && msStatus.getSelected().length < msStatus.options.length) {
+    const set = new Set(msStatus.getSelected());
+    data = data.filter(l => set.has(l.status));
+  } else if (!fHidden.checked) {
+    data = data.filter(l => !["elendi", "firma reddetti", "kazanıldı"].includes(l.status));
+  }
+
+  if (msVerdict && msVerdict.getSelected().length && msVerdict.getSelected().length < msVerdict.options.length) {
+    const set = new Set(msVerdict.getSelected());
+    data = data.filter(l => set.has(l.verdict));
+  }
+  if (msCountry && msCountry.getSelected().length && msCountry.getSelected().length < msCountry.options.length) {
+    const set = new Set(msCountry.getSelected());
+    data = data.filter(l => set.has(l.country));
+  }
+  if (msImpressum && msImpressum.getSelected().length && msImpressum.getSelected().length < msImpressum.options.length) {
+    const set = new Set(msImpressum.getSelected());
+    data = data.filter(l => set.has(l.impressum_status || 'pending'));
+  }
+  if (msDetail && msDetail.getSelected().length && msDetail.getSelected().length < msDetail.options.length) {
+    const set = new Set(msDetail.getSelected());
+    data = data.filter(l => set.has(l.detail_status || 'pending'));
+  }
+  if (msAiStatus && msAiStatus.getSelected().length && msAiStatus.getSelected().length < msAiStatus.options.length) {
+    const set = new Set(msAiStatus.getSelected());
+    data = data.filter(l => set.has(l.ai_status || 'pending'));
+  }
+  if (msData && msData.getSelected().length && msData.getSelected().length < msData.options.length) {
+    const sel = new Set(msData.getSelected());
+    if (sel.has("has_email")) data = data.filter(l => l.contact_email && l.contact_email.trim());
+    if (sel.has("has_contact")) data = data.filter(l => l.contact_name && l.contact_name.trim());
+    if (sel.has("has_phone")) data = data.filter(l => l.phone && l.phone.trim());
+    if (sel.has("not_emailed")) data = data.filter(l => !l.emailed);
+    if (sel.has("personal_email")) data = data.filter(l => l.contact_email && !l.email_is_generic);
+  }
+  if (document.getElementById("fAiDivergent")?.checked) {
+    data = data.filter(l => l.ai_score != null && l.score != null && Math.abs(l.ai_score - l.score) >= 25);
+  }
+  if (search.value.trim()) {
+    const q = search.value.trim().toLowerCase();
+    data = data.filter(l => (l.name || '').toLowerCase().includes(q) || (l.website || '').toLowerCase().includes(q) || (l.contact_email || '').toLowerCase().includes(q));
+  }
+  data = applySort(data);
+  updateSortIndicators();
+
+  const totalFiltered = data.length;
+  const pSizeVal = document.getElementById("pageSize")?.value || "50";
+  let pageSize = pSizeVal === "all" ? totalFiltered : parseInt(pSizeVal, 10);
+  if (isNaN(pageSize) || pageSize < 1) pageSize = 50;
+
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = pSizeVal === "all" ? totalFiltered : Math.min(startIdx + pageSize, totalFiltered);
+  const pagedData = data.slice(startIdx, endIdx);
+
+  const lblFiltered = document.getElementById("lblFilteredCount");
+  if (lblFiltered) lblFiltered.textContent = totalFiltered;
+  const lblRange = document.getElementById("lblPageRange");
+  if (lblRange) lblRange.textContent = totalFiltered > 0 ? `${startIdx + 1}-${endIdx}` : "0";
+  const lblPageNum = document.getElementById("lblPageNum");
+  if (lblPageNum) lblPageNum.textContent = `Sayfa ${currentPage} / ${totalPages}`;
+
+  rows.innerHTML = pagedData.map(l=>`
+    <tr onclick="openPanel(${l.id})">
+      <td onclick="event.stopPropagation()"><input type="checkbox" class="row-chk" value="${l.id}" ${selectedIds.has(l.id)?'checked':''} onchange="updateBatchSelectionBar()"></td>
+      <td>${esc(l.name)}${l.is_competitor?' <span class="tag ELE" title="Rakip sinyali">rakip</span>':''}${renderDetailBadge(l)}${renderImpBadge(l)}${l.website?` <a href="${esc(l.website)}" target="_blank" onclick="event.stopPropagation()" class="muted">↗</a>`:''}</td>
+      <td>${esc(l.location)||'<span class="muted">—</span>'}</td>
+      <td>${esc(l.hourly_rate)||'<span class="muted">—</span>'}</td>
+      <td>${esc(l.team_size)||'<span class="muted">—</span>'}</td>
+      <td><span class="tag ${l.verdict||'ELE'}">${l.score} ${l.verdict||''}</span></td>
+      <td>${renderAiBadge(l)}</td>
+      <td class="editable" contenteditable onclick="event.stopPropagation()" onblur="saveField(${l.id},'contact_email',this.textContent)">${esc(l.contact_email)}</td>
+      <td onclick="event.stopPropagation()">
+        <select class="status-pill" style="${getStatusPillStyle(l.status)}" onchange="setStatus(${l.id},this.value);this.style.cssText=getStatusPillStyle(this.value)">
+          ${STATUSES.map(s=>`<option ${s===l.status?'selected':''}>${s}</option>`).join("")}
+        </select>
+      </td>
+      <td class="muted" style="font-size:12px">${fmtDate(l.created_at)}</td>
+    </tr>`).join("");
+
+  updateBatchSelectionBar();
+}
+
+let selectedIds = new Set();
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll(".row-chk").forEach(chk => {
+    chk.checked = checked;
+    const id = parseInt(chk.value, 10);
+    if (checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+  });
+  updateBatchSelectionBar();
+}
+
+function updateBatchSelectionBar() {
+  selectedIds.clear();
+  document.querySelectorAll(".row-chk:checked").forEach(chk => {
+    selectedIds.add(parseInt(chk.value, 10));
+  });
+  const count = selectedIds.size;
+  const bar = document.getElementById("batchBar");
+  const countEl = document.getElementById("selectedCount");
+  if (bar && countEl) {
+    countEl.textContent = count;
+    bar.style.display = count > 0 ? "flex" : "none";
+  }
+  const selectAllChk = document.getElementById("chkSelectAll");
+  if (selectAllChk) {
+    const allChks = document.querySelectorAll(".row-chk");
+    selectAllChk.checked = allChks.length > 0 && Array.from(allChks).every(c => c.checked);
+  }
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  const selectAllChk = document.getElementById("chkSelectAll");
+  if (selectAllChk) selectAllChk.checked = false;
+  document.querySelectorAll(".row-chk").forEach(c => c.checked = false);
+  updateBatchSelectionBar();
+}
+
+async function runBatchImpressum() {
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  const inc = document.getElementById("chkIncludeEliminated")?.checked || false;
+  const j = await (await fetch("/api/impressum/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, include_eliminated: inc })
+  })).json();
+  if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+
+async function runBatchClutchDetails() {
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  const inc = document.getElementById("chkClutchIncludeEliminated")?.checked || false;
+  const j = await (await fetch("/api/clutch/details", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, include_eliminated: inc })
+  })).json();
+  if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+
+async function applyBatchStatus(status) {
+  if (!status) return;
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  if (!confirm(`${ids.length} adet kaydın durumu '${status}' olarak değiştirilsin mi?`)) {
+    document.getElementById("batchStatusSelect").value = "";
+    return;
+  }
+  await fetch("/api/leads/batch-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, status })
+  });
+  document.getElementById("batchStatusSelect").value = "";
+  clearSelection();
+  load();
+}
+
+async function saveField(id,field,val){
+  val=val.trim();
+  await fetch("/api/lead/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({[field]:val})});
+  load();
+}
+async function toggleEmailed(id,checked){
+  await fetch(`/api/lead/${id}/emailed`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({checked})}); load();
+}
+async function setStatus(id,status){
+  await fetch(`/api/lead/${id}/status`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({status})}); load();
+}
+
+async function submitDomains(){
+  const r=await fetch("/api/leads/add",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({domains:domains.value})});
+  const j=await r.json(); domains.value=""; addDialog.close();
+  alert(`${j.added} eklendi, ${j.skipped} atlandı`); load();
+}
+async function importCsv(input){
+  const fd=new FormData(); fd.append("file",input.files[0]);
+  const j=await (await fetch("/api/import.csv",{method:"POST",body:fd})).json();
+  input.value=""; alert(`${j.added} içe aktarıldı, ${j.skipped} atlandı`); load();
+}
+
+// --- off-canvas ---
+async function openPanel(id){
+  const l=LEADS.find(x=>x.id===id); if(!l) return;
+  let bd = l.score_breakdown || {};
+  if (typeof bd === 'string') {
+    try { bd = JSON.parse(bd); } catch(e) { bd = {}; }
+  }
+  const rows=Object.entries(bd).filter(([k])=>!k.startsWith("_"))
+    .map(([k,v])=>`<div class="kv"><span>${esc(k)}</span><b>${v}</b></div>`).join("")||'<span class="muted">Skor kırılımı yok</span>';
+  const ele=(bd._ele_reasons||[]).length?`<div class="muted">ELE sebebi: ${bd._ele_reasons.map(esc).join(", ")}</div>`:"";
+  const services=l.services_json?renderServices(l.services_json):"";
+
+  let aiSection = '';
+  if (l.ai_status === 'done' && l.ai_score != null) {
+    const isDivergent = l.score != null && Math.abs(l.ai_score - l.score) >= 25;
+    let flags = [];
+    try { flags = JSON.parse(l.ai_flags || '[]'); } catch(e) {}
+    const flagsHtml = flags.length ? flags.map(f => `<span class="tag ELE" style="font-size:10px;margin-right:4px">${esc(f)}</span>`).join('') : '';
+
+    aiSection = `
+      <div class="section" style="background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--ai);margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 style="margin:0;color:var(--ai)">🤖 AI Değerlendirmesi</h3>
+          <span class="tag" style="background:var(--ai);font-size:12px">${l.ai_score} / 100 — ${esc(l.ai_label)}</span>
+        </div>
+        ${isDivergent ? `<div style="background:rgba(229,72,77,0.15);border:1px solid var(--sicak);padding:6px 10px;border-radius:6px;margin-bottom:8px;font-size:12px;color:var(--sicak);font-weight:600">
+          ⚠ AI Ayrışması: Kural skoru (${l.score}) ile AI skoru (${l.ai_score}) arasında ≥25 puan fark var!
+        </div>` : ''}
+        ${l.ai_comment ? `<div style="font-size:13px;line-height:1.4;margin-bottom:8px;color:var(--text)">${esc(l.ai_comment)}</div>` : ''}
+        ${l.ai_angle ? `<div style="font-size:12px;font-style:italic;color:var(--accent);margin-bottom:8px"><b>Outreach Açısı:</b> ${esc(l.ai_angle)}</div>` : ''}
+        ${flagsHtml ? `<div style="margin-bottom:6px">${flagsHtml}</div>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)">
+          <span>Model: ${esc(l.ai_model||'—')} · Güven: %${Math.round((l.ai_confidence||0.8)*100)}${(l.ai_confidence||0.8)<0.5?' <b style="color:var(--orta)">(Düşük Güven)</b>':''}</span>
+          <button onclick="aiEvaluateOne(${l.id})" style="font-size:11px;padding:3px 8px">🔄 Yeniden Değerlendir</button>
+        </div>
+      </div>
+    `;
+  } else if (l.ai_status === 'error') {
+    aiSection = `
+      <div class="section" style="background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--sicak)">
+        <h3 style="margin:0 0 6px;color:var(--sicak)">🤖 AI Değerlendirmesi</h3>
+        <p class="muted" style="font-size:12px;margin:0 0 8px">AI değerlendirmesi sırasında bir hata oluştu veya yanıt alınamadı.</p>
+        <button onclick="aiEvaluateOne(${l.id})" style="font-size:12px">🤖 Yeniden Dene</button>
+      </div>
+    `;
+  } else {
+    aiSection = `
+      <div class="section" style="background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h3 style="margin:0;color:var(--muted)">🤖 AI Değerlendirmesi</h3>
+            <span class="muted" style="font-size:12px">Henüz değerlendirilmedi</span>
+          </div>
+          <button onclick="aiEvaluateOne(${l.id})" style="border-color:var(--ai);color:var(--ai)">🤖 AI ile Değerlendir</button>
+        </div>
+      </div>
+    `;
+  }
+
+  let aiEmailSection = '';
+  if (l.ai_email_status === 'done' && l.ai_email_body) {
+    const toEmail = l.contact_email || '';
+    aiEmailSection = `
+      <div class="section" style="background:var(--panel2);padding:14px;border-radius:8px;border:1px solid var(--accent);margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0;color:var(--accent)">✉️ AI Outreach & Takip Kiti</h3>
+          <span class="tag" style="background:var(--accent);font-size:11px">Varyant ${esc(l.ai_email_variant||'A')}</span>
+        </div>
+        ${!toEmail ? `<div style="background:rgba(229,72,77,0.15);border:1px solid var(--sicak);padding:6px 10px;border-radius:6px;margin-bottom:10px;font-size:12px;color:var(--sicak);font-weight:600">
+          ⚠ E-posta adresi eksik! Gmail'e göndermek için önce aşağıdaki Bilgiler alanına e-posta adresi girin.
+        </div>` : ''}
+
+        <div style="background:var(--bg);padding:10px;border-radius:6px;margin-bottom:12px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:600;color:var(--muted)">1. İLK TEMAS E-POSTASI</span>
+            <div style="display:flex;gap:6px">
+              <button onclick="copyText(this.dataset.text, this)" data-text="${esc(l.ai_email_subject||'')}" style="font-size:10px;padding:3px 7px">📋 Konuyu Kopyala</button>
+              <button onclick="copyText(this.dataset.text, this)" data-text="${esc(l.ai_email_body||'')}" style="font-size:10px;padding:3px 7px">📋 Maili Kopyala</button>
+            </div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px"><b>Konu:</b> ${esc(l.ai_email_subject)}</div>
+          <div style="font-size:12px;white-space:pre-wrap;color:var(--muted);background:var(--panel2);padding:8px;border-radius:4px;max-height:160px;overflow-y:auto">${esc(l.ai_email_body)}</div>
+          <div style="margin-top:10px">
+            ${l.gmail_draft_at ? `<div style="background:rgba(47,191,113,0.15);border:1px solid var(--green);color:var(--green);font-size:11px;font-weight:600;padding:5px 8px;border-radius:4px;margin-bottom:6px;text-align:center">✓ GSuite Taslağı Oluşturuldu (${fmtDate(l.gmail_draft_at)})</div>` : ''}
+            <button onclick="createGmailDraftApi(${l.id}, '${esc(l.gmail_draft_at||'')}')" style="width:100%;background:${l.gmail_draft_at?'var(--panel2)':'var(--accent)'};color:${l.gmail_draft_at?'var(--text)':'#fff'};border:${l.gmail_draft_at?'1px solid var(--border)':'none'};font-weight:600;font-size:13px;padding:9px 14px;cursor:pointer;border-radius:6px;text-align:center" title="Doğrudan burak@endor.agency GSuite Taslaklarına kaydeder">${l.gmail_draft_at ? '🔄 Tekrar GSuite Taslağı Oluştur (OAuth)' : '📥 GSuite\'e Taslak Olarak Kaydet (OAuth)'}</button>
+          </div>
+        </div>
+
+        <div style="background:var(--bg);padding:10px;border-radius:6px;margin-bottom:12px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:600;color:var(--muted)">2. LINKEDIN BAĞLANTI NOTU (3-4 gün sonra)</span>
+            <button onclick="copyText(this.dataset.text, this)" data-text="${esc(l.ai_linkedin_note||'')}" style="font-size:10px;padding:3px 7px">📋 Notu Kopyala</button>
+          </div>
+          <div style="font-size:12px;white-space:pre-wrap;color:var(--muted);background:var(--panel2);padding:8px;border-radius:4px">${esc(l.ai_linkedin_note)}</div>
+        </div>
+
+        <div style="background:var(--bg);padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:600;color:var(--muted)">3. TAKİP E-POSTASI (4-5 gün sonra reply)</span>
+            <button onclick="copyText(this.dataset.text, this)" data-text="${esc(l.ai_followup_body||'')}" style="font-size:10px;padding:3px 7px">📋 Takip Mailini Kopyala</button>
+          </div>
+          <div style="font-size:12px;white-space:pre-wrap;color:var(--muted);background:var(--panel2);padding:8px;border-radius:4px">${esc(l.ai_followup_body)}</div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)">
+          <span>Oluşturulma: ${fmtDate(l.ai_email_at)}</span>
+          <button onclick="generateAiEmailOne(${l.id})" style="font-size:11px;padding:3px 8px">🔄 Yeniden Üret</button>
+        </div>
+      </div>
+    `;
+  } else if (l.ai_email_status === 'error') {
+    aiEmailSection = `
+      <div class="section" style="background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--sicak);margin-top:16px">
+        <h3 style="margin:0 0 6px;color:var(--sicak)">✉️ AI Outreach & Takip Kiti</h3>
+        <p class="muted" style="font-size:12px;margin:0 0 8px">Outreach kiti üretilirken bir hata oluştu veya API anahtarı eksik.</p>
+        <button onclick="generateAiEmailOne(${l.id})" style="font-size:12px">✉️ Yeniden Dene</button>
+      </div>
+    `;
+  } else {
+    aiEmailSection = `
+      <div class="section" style="background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--border);margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <h3 style="margin:0;color:var(--accent)">✉️ AI Outreach & Takip Kiti</h3>
+            <span class="muted" style="font-size:12px">E-posta, LinkedIn notu ve takip metni üretilebilir.</span>
+          </div>
+          <button onclick="generateAiEmailOne(${l.id})" style="border-color:var(--accent);color:var(--accent)">✉️ AI Mail & Takip Kiti Üret</button>
+        </div>
+      </div>
+    `;
+  }
+
+  panelBody.innerHTML=`
+    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <h2 style="margin:0 0 4px">${esc(l.name)}</h2>
+      <div class="muted">${esc(l.location)||''} · <span class="tag ${l.verdict||'ELE'}">${l.score} ${l.verdict||''}</span></div>
+    </div>
+    <div class="section"><h3>Skor kırılımı</h3>${rows}${ele}</div>
+    ${aiSection}
+    ${aiEmailSection}
+    ${services}
+    <div class="section"><h3>Bilgiler</h3>
+      <div class="kv"><span>Saatlik</span><b>${esc(l.hourly_rate)||'—'}</b></div>
+      <div class="kv"><span>Ekip</span><b>${esc(l.team_size)||'—'}</b></div>
+      <div class="kv"><span>Kuruluş</span><b>${esc(l.founded_year)||'—'}</b></div>
+      <div class="kv"><span>Merkez ülke</span><b>${esc(l.hq_country)||'—'}</b></div>
+      ${l.locations_json?`<div class="kv"><span>Ofisler</span><b>${esc((JSON.parse(l.locations_json)||[]).join(', '))}</b></div>`:''}
+      <div class="kv"><span>Yorum / puan</span><b>${esc(l.review_count)||'—'} / ${esc(l.rating)||'—'}</b></div>
+      <div class="kv"><span>Telefon</span><b>${esc(l.phone)||'—'}</b></div>
+      <div class="kv"><span>Impressum</span><b>${esc(l.impressum_status)} ${l.impressum_method?'('+esc(l.impressum_method)+')':''}</b></div>
+      ${l.is_competitor?'<div class="kv"><span>⚠ Rakip sinyali</span><b style="color:var(--sicak)">EVET</b></div>':''}
+    </div>
+    <div class="section"><h3>Impressum ham çıktı</h3>
+      <div class="raw">${esc(l.impressum_raw)||'Henüz çekilmedi'}</div></div>
+    <div class="section"><h3>Linkler & Veri Çekme</h3>
+      <div style="margin-bottom:8px;font-size:12px">
+        ${l.website?`<a href="${esc(l.website)}" target="_blank">Web sitesi</a> · `:''}
+        ${l.impressum_url?`<a href="${esc(l.impressum_url)}" target="_blank">Impressum</a> · `:''}
+        ${l.source_url?`<a href="${esc(l.source_url)}" target="_blank">Kaynak profil</a>`:''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="impressumOne(${l.id})">⛏ Impressum çek</button>
+        ${l.source==='clutch'&&l.source_url?`<button onclick="clutchDetailOne(${l.id})">◆ Clutch detay çek</button>`:''}
+        ${l.source==='clutch'?`<label class="btn" style="cursor:pointer">↑ Detay HTML yükle<input type="file" accept=".html" hidden onchange="uploadClutchDetail(this,${l.id})"></label>`:''}
+      </div>
+    </div>
+    <div class="section"><h3>Notlar</h3>
+      <input type="text" id="noteInput" placeholder="Not ekle, Enter…" style="width:100%"
+        onkeydown="if(event.key==='Enter')addNote(${l.id})">
+      <div id="noteList" style="margin-top:8px"></div>
+    </div>`;
+  loadNotes(id);
+  overlay.classList.add("open"); document.getElementById("panel").classList.add("open");
+}
+
+async function createGmailDraftApi(id, draftedAt) {
+  if (draftedAt && draftedAt.trim()) {
+    if (!confirm(`⚠ Bu ajans için daha önce GSuite taslağı oluşturulmuş! (${fmtDate(draftedAt)})\n\nYine de tekrar yeni bir taslak oluşturmak istiyor musunuz?`)) {
+      return;
+    }
+  }
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = "📥 Taslak Oluşturuluyor..."; }
+  try {
+    const r = await fetch(`/api/lead/${id}/gmail-draft`, { method: "POST" });
+    const data = await r.json();
+    if (data.ok) {
+      alert("✓ GSuite (burak@endor.agency) hesabınızda Taslak (Draft) başarıyla oluşturuldu!");
+      const idx = LEADS.findIndex(x => x.id === id);
+      if (idx !== -1 && data.gmail_draft_at) {
+        LEADS[idx].gmail_draft_at = data.gmail_draft_at;
+      }
+      openPanel(id);
+    } else {
+      if (data.error && data.error.includes("client_secret.json")) {
+        if (confirm("Gmail API henüz yapılandırılmadı. Bağlantı kurulum sayfasına gitmek ister misiniz?")) {
+          window.open('/api/gmail/auth', '_blank');
+        }
+      } else {
+        alert("Gmail Taslak hatası: " + (data.error || "Bilinmeyen hata"));
+      }
+    }
+  } catch(e) {
+    alert("Hata oluştu: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+function copyText(text, btn) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Kopyalandı!';
+      btn.style.background = 'var(--green)';
+      btn.style.color = '#fff';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+        btn.style.color = '';
+      }, 1800);
+    }
+  }).catch(err => {
+    console.error('Copy failed:', err);
+  });
+}
+
+async function generateAiEmailOne(id) {
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = "✉️ Üretiliyor..."; }
+  try {
+    const r = await fetch(`/api/lead/${id}/ai-email`, { method: "POST" });
+    const data = await r.json();
+    if (data.ok && data.lead) {
+      const idx = LEADS.findIndex(x => x.id === id);
+      if (idx !== -1) LEADS[idx] = data.lead;
+      render();
+      openPanel(id);
+    } else {
+      alert("AI Mail üretimi başarısız: " + (data.error || "Bilinmeyen hata"));
+    }
+  } catch(e) {
+    alert("Hata oluştu: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+function renderServices(json){
+  let d; try{d=JSON.parse(json)}catch(e){return""}
+  const rows=Object.entries(d).map(([k,v])=>`<div class="kv"><span>${esc(k)}</span><b>${esc(v)}%</b></div>`).join("");
+  return `<div class="section"><h3>Servis dağılımı</h3>${rows}</div>`;
+}
+function closePanel(){overlay.classList.remove("open");document.getElementById("panel").classList.remove("open")}
+
+async function loadNotes(id){
+  const notes=await (await fetch(`/api/lead/${id}/notes`)).json();
+  noteList.innerHTML=notes.map(n=>`
+    <div class="note ${n.type}">
+      <div>${esc(n.body)}</div>
+      <div class="meta"><span>${n.created_at.replace('T',' ').slice(0,16)}</span>
+        ${n.type==='user'?`<span class="del" onclick="delNote(${n.id},${id})">sil</span>`:''}</div>
+    </div>`).join("")||'<span class="muted">Not yok</span>';
+}
+async function addNote(id){
+  const body=noteInput.value.trim(); if(!body)return;
+  await fetch(`/api/lead/${id}/notes`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({body})}); noteInput.value=""; loadNotes(id);
+}
+async function delNote(nid,lid){await fetch("/api/note/"+nid,{method:"DELETE"});loadNotes(lid)}
+async function transfer(id){
+  if(!confirm("Kazanıldı olarak işaretlensin mi?"))return;
+  await fetch(`/api/lead/${id}/transfer`,{method:"POST"}); closePanel(); load();
+}
+
+// --- Impressum çekme + worker ilerleme ---
+function openProgressModal() {
+  if (autoCloseTimer) {
+    clearTimeout(autoCloseTimer);
+    autoCloseTimer = null;
+  }
+  if (typeof progressDialog !== "undefined" && !progressDialog.open) {
+    progressDialog.showModal();
+  }
+}
+
+async function stopWorker() {
+  if (!confirm("Devam eden arka plan işlemi iptal edilsin mi?")) return;
+  await fetch("/api/worker/stop", { method: "POST" });
+  if (typeof progressDialog !== "undefined" && progressDialog.open) {
+    progressDialog.close();
+  }
+  const btnActive = document.getElementById("btnActiveWorker");
+  if (btnActive) btnActive.style.display = "none";
+  load();
+}
+
+async function runImpressum(){
+  const inc = document.getElementById("chkIncludeEliminated")?.checked || false;
+  const j=await (await fetch("/api/impressum/run",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({include_eliminated: inc})
+  })).json();
+  if(j.queued===0){alert("Çekilecek yeni/uygun lead bulunamadı.");return;}
+  if(document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+async function aiEvaluateOne(id){
+  try {
+    const r = await fetch(`/api/lead/${id}/ai-evaluate`, { method: "POST" });
+    const j = await r.json();
+    if (!r.ok || !j.ok) {
+      alert("⚠️ AI Değerlendirmesi yapılamadı (LLM API key ayarlanmamış olabilir).");
+      return;
+    }
+    await load();
+    openPanel(id);
+  } catch(e) {
+    alert("⚠️ AI Değerlendirmesi hatası: " + e.message);
+  }
+}
+
+async function runBatchAi(){
+  const j = await (await fetch("/api/leads/ai-evaluate-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ include_all: false })
+  })).json();
+  if (j.queued === 0) { alert("Değerlendirilecek SICAK/ORTA lead bulunamadı veya tümü zaten değerlendirilmiş."); return; }
+  if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+
+async function runBatchAiSelected(){
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  const j = await (await fetch("/api/leads/ai-evaluate-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids })
+  })).json();
+  if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+
+async function impressumOne(id){
+  await fetch(`/api/lead/${id}/impressum`,{method:"POST"});
+  if(document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+async function clutchDetailOne(id){
+  await fetch(`/api/lead/${id}/clutch-detail`,{method:"POST"}); closePanel();
+  if(document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+async function uploadClutchDetail(input,id){
+  if(!input.files||!input.files[0]) return;
+  const fd=new FormData(); fd.append("file",input.files[0]); fd.append("type","detail"); fd.append("lead_id",id);
+  try {
+    const r = await fetch("/api/clutch/upload",{method:"POST",body:fd});
+    const j = await r.json();
+    input.value="";
+    if(!r.ok || !j.ok) {
+      alert("⚠️ " + (j.error || "Uyumsuzluk veya yükleme hatası oluştu."));
+      return;
+    }
+    alert("✓ Profil Detayı başarıyla güncellendi.");
+    closePanel(); load();
+  } catch(e) {
+    alert("⚠️ Yükleme hatası: " + e.message);
+  }
+}
+// --- Kaynaklar dropdown ---
+let SOURCES=[];
+async function loadSources(){
+  try{
+    const r=await fetch("/api/sources");
+    if(!r.ok) throw new Error(r.status);
+    SOURCES=await r.json();
+  }catch(e){ SOURCES=[]; sourcesMenu.innerHTML='<div class="muted-item">Kaynaklar yüklenemedi — sunucuyu yeniden başlatıp sayfayı yenile.</div>'; return; }
+  sourcesMenu.innerHTML = SOURCES.length
+    ? SOURCES.map(s=>`<button onclick="openSource('${s.name}')">◆ ${esc(s.label)}</button>`).join("")
+    : '<div class="muted-item">Kaynak yok</div>';
+}
+function toggleSources(e){
+  e.stopPropagation();
+  if(!SOURCES.length) loadSources();      // boşsa açarken yeniden dene
+  sourcesMenu.classList.toggle("open");
+}
+function openSource(name){
+  sourcesMenu.classList.remove("open");
+  if(name==="clutch"){ clutchDialog.showModal(); }
+  else { alert(name+" için crawl arayüzü henüz eklenmedi."); }
+}
+document.addEventListener("click",()=>sourcesMenu.classList.remove("open"));
+
+// --- Clutch ---
+async function crawlListing(){
+  const url=clutchUrl.value.trim(); if(!url){alert("Filtre URL'si gir");return;}
+  await fetch("/api/clutch/listing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url})});
+  clutchDialog.close();
+  if(document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+async function crawlDetails(){
+  const inc = document.getElementById("chkClutchIncludeEliminated")?.checked || false;
+  const j=await (await fetch("/api/clutch/details",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({include_eliminated: inc})
+  })).json();
+  clutchDialog.close();
+  if(j.queued===0){alert("Detayı çekilecek Clutch kaydı yok.");return;}
+  if(document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+async function uploadClutch(input,kind){
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  let totalAdded = 0, totalFound = 0;
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("type", kind);
+    try {
+      const j = await (await fetch("/api/clutch/upload", { method: "POST", body: fd })).json();
+      if (kind === "listing") {
+        totalAdded += (j.added || 0);
+        totalFound += (j.found || 0);
+      }
+    } catch(e) {
+      console.error("uploadClutch error:", e);
+    }
+  }
+  input.value = "";
+  if (kind === "listing") {
+    alert(`${files.length} adet listing dosyası işlendi: ${totalAdded} yeni eklendi (toplam ${totalFound} firma bulundu).`);
+  } else {
+    alert(`${files.length} adet detay dosyası işlendi.`);
+  }
+  clutchDialog.close();
+  load();
+}
+
+let pollTimer=null, pollTick=0, autoCloseTimer=null;
+async function pollWorker(){
+  try {
+    const s=await (await fetch("/api/worker")).json();
+    const btnActive = document.getElementById("btnActiveWorker");
+    const btnCount = document.getElementById("btnWorkerCount");
+    
+    const isDone = s.total > 0 && s.done >= s.total;
+    const isWorking = s.running && !isDone;
+
+    if (isDone) {
+      pollTick = 0;
+      if (btnActive) btnActive.style.display = "none";
+
+      if (document.getElementById("progressJobName")) document.getElementById("progressJobName").textContent = `${s.job_name || 'İşlem'} Tamamlandı ✓`;
+      if (document.getElementById("progressSubText")) document.getElementById("progressSubText").textContent = "✓ İşlem başarıyla tamamlandı.";
+      if (document.getElementById("progressBar")) document.getElementById("progressBar").style.width = "100%";
+      if (document.getElementById("pDone")) document.getElementById("pDone").textContent = s.done;
+      if (document.getElementById("pTotal")) document.getElementById("pTotal").textContent = s.total;
+      if (document.getElementById("pPercent")) document.getElementById("pPercent").textContent = "%100";
+      if (document.getElementById("pErrors")) document.getElementById("pErrors").textContent = s.errors || 0;
+      if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "none";
+
+      if (!autoCloseTimer) {
+        autoCloseTimer = setTimeout(() => {
+          if (typeof progressDialog !== "undefined" && progressDialog.open) {
+            progressDialog.close();
+          }
+          autoCloseTimer = null;
+        }, 1800);
+      }
+      load();
+    } else if (isWorking) {
+      if (btnActive) btnActive.style.display = "inline-flex";
+      if (btnCount) btnCount.textContent = `${s.done}/${s.total}`;
+
+      if (pollTick++ % 3 === 0) { await load(); }
+      const jobName = s.job_name || "İşlem";
+      const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
+
+      if (document.getElementById("progressJobName")) document.getElementById("progressJobName").textContent = `${jobName} Sürüyor`;
+      if (document.getElementById("progressSubText")) document.getElementById("progressSubText").textContent = "Arka plan işlemi devam ediyor...";
+      if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+      if (document.getElementById("progressBar")) document.getElementById("progressBar").style.width = `${pct}%`;
+      if (document.getElementById("pDone")) document.getElementById("pDone").textContent = s.done;
+      if (document.getElementById("pTotal")) document.getElementById("pTotal").textContent = s.total;
+      if (document.getElementById("pPercent")) document.getElementById("pPercent").textContent = `%${pct}`;
+      if (document.getElementById("pErrors")) document.getElementById("pErrors").textContent = s.errors || 0;
+
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(pollWorker, 2500);
+    } else {
+      pollTick = 0;
+      if (btnActive) btnActive.style.display = "none";
+    }
+  } catch(e) {
+    console.error("pollWorker error:", e);
+  }
+}
+
+initSort();
+loadSources();
+initMultiSelects();
+load();
+pollWorker();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+.env
+leads.db
+leads.db-journal
+__pycache__/
+*.pyc
+.venv/
+venv/
+uploads/
+saved_html/
+client_secret.json
+gmail_tokens.json
+

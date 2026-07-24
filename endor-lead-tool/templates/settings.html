@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ayarlar — Endor Lead Tool</title>
+<style>
+  :root{--bg:#0f1216;--panel:#171b22;--panel2:#1e242d;--border:#2a323d;--text:#e6eaf0;--muted:#8b97a7;--accent:#4f8cff;--green:#2fbf71}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  header{display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--panel)}
+  header h1{font-size:16px;margin:0}
+  .wrap{max-width:760px;margin:0 auto;padding:24px 18px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:20px}
+  .card h2{font-size:14px;margin:0 0 4px}
+  .card p{color:var(--muted);margin:0 0 14px;font-size:13px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .chip{background:var(--panel2);border:1px solid var(--border);padding:4px 10px;border-radius:14px;font-size:12px;display:flex;gap:6px;align-items:center}
+  .chip .x{cursor:pointer;color:var(--muted)}
+  .chip .x:hover{color:#e5484d}
+  input[type=text],input[type=number],select{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:6px 10px;border-radius:6px;font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center;max-width:420px}
+  .grid label{color:var(--muted);font-size:13px}
+  .grid input{width:90px}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-green{background:var(--green);border-color:var(--green);color:#fff}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+  th{color:var(--muted);font-weight:500}
+  .save-row{display:flex;gap:10px;align-items:center;position:sticky;bottom:0;background:var(--bg);padding:14px 0}
+  .toast{color:var(--green)}
+</style>
+</head>
+<body>
+<header><a href="/">← Geri</a><h1>Ayarlar</h1></header>
+<div class="wrap">
+
+  <div class="card">
+    <h2>Hedef ülkeler</h2>
+    <p>Merkez ülkesi bunlardan biriyse +puan. Tıklayarak ekle/çıkar.</p>
+    <div class="chips" id="targetChips"></div>
+    <input type="text" id="targetInput" placeholder="Ülke ekle, Enter" onkeydown="if(event.key==='Enter'){addChip('target_countries',this.value);this.value=''}">
+  </div>
+
+  <div class="card">
+    <h2>Elenecek ülkeler (offshore)</h2>
+    <p>Merkez ülkesi bunlardan biriyse otomatik ELE — müşteri değil, rakip.</p>
+    <div class="chips" id="offshoreChips"></div>
+    <input type="text" id="offshoreInput" placeholder="Ülke ekle, Enter" onkeydown="if(event.key==='Enter'){addChip('offshore_countries',this.value);this.value=''}">
+  </div>
+
+  <div class="card">
+    <h2>Skor ağırlıkları</h2>
+    <p>Her sinyalin puanı. Değiştirdikten sonra "Tüm kayıtları yeniden skorla".</p>
+    <div class="grid" id="weightsGrid"></div>
+  </div>
+
+  <div class="card">
+    <h2>Eşikler & negatif filtre</h2>
+    <div class="grid">
+      <label>SICAK ≥</label><input type="number" id="th_sicak">
+      <label>ORTA ≥</label><input type="number" id="th_orta">
+      <label>ZAYIF ≥</label><input type="number" id="th_zayif">
+      <label>Min saatlik ücret ($)</label><input type="number" id="nf_rate">
+      <label>Max ekip büyüklüğü</label><input type="number" id="nf_team">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Kaynak (connector) ayarları</h2>
+    <p>Teknik ayarlar. Yeni connector eklenince otomatik listelenir.</p>
+    <table><thead><tr><th>Kaynak</th><th>Aktif</th><th>Bekleme (min–max sn)</th><th>User-Agent</th></tr></thead>
+    <tbody id="connBody"></tbody></table>
+  </div>
+
+  <div class="save-row">
+    <button class="btn-primary" onclick="save()">Ayarları kaydet</button>
+    <button class="btn-green" onclick="rescoreAll()">Tüm kayıtları yeniden skorla</button>
+    <span class="toast" id="toast"></span>
+  </div>
+</div>
+
+<script>
+let S={};
+const WEIGHT_LABELS={target_country:"Hedef ülke (+)",rate_high:"Saatlik $100+",team_ideal:"Ekip 10-49",
+  team_small:"Ekip 2-9",team_large:"Ekip 50-99",team_xlarge:"Ekip 100+",design_heavy:"Design/strateji ağırlıklı",
+  hiring_devs:"Developer ilanı",personal_email:"Kişisel mail",generic_email:"Genel mail (info@)",active_recent:"Aktif (<12 ay)",
+  competitor_penalty:"Rakip sinyali cezası (−)"};
+
+async function boot(){
+  S=await (await fetch("/api/settings")).json();
+  renderChips("target_countries","targetChips");
+  renderChips("offshore_countries","offshoreChips");
+  renderWeights();
+  th_sicak.value=S.thresholds.sicak; th_orta.value=S.thresholds.orta; th_zayif.value=S.thresholds.zayif;
+  nf_rate.value=S.negative_filter.min_rate; nf_team.value=S.negative_filter.max_team;
+  renderConnectors();
+}
+function esc(s){return(s??"").toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function renderChips(key,elId){
+  document.getElementById(elId).innerHTML=(S[key]||[]).map((c,i)=>
+    `<span class="chip">${esc(c)}<span class="x" onclick="delChip('${key}',${i})">×</span></span>`).join("");
+}
+function addChip(key,val){val=val.trim();if(!val)return;S[key]=S[key]||[];if(!S[key].includes(val))S[key].push(val);
+  renderChips(key,key==='target_countries'?'targetChips':'offshoreChips')}
+function delChip(key,i){S[key].splice(i,1);renderChips(key,key==='target_countries'?'targetChips':'offshoreChips')}
+
+function renderWeights(){
+  weightsGrid.innerHTML=Object.keys(WEIGHT_LABELS).map(k=>
+    `<label>${WEIGHT_LABELS[k]}</label><input type="number" data-w="${k}" value="${S.weights[k]??0}">`).join("");
+}
+function renderConnectors(){
+  const c=S.connectors||{};
+  connBody.innerHTML=Object.entries(c).map(([name,cfg])=>`
+    <tr data-conn="${name}">
+      <td>${name}</td>
+      <td><input type="checkbox" data-f="active" ${cfg.active?'checked':''}></td>
+      <td><input type="number" data-f="delay_min" value="${cfg.delay_min}" style="width:60px"> –
+          <input type="number" data-f="delay_max" value="${cfg.delay_max}" style="width:60px"></td>
+      <td><input type="text" data-f="user_agent" value="${esc(cfg.user_agent)}" style="width:180px"></td>
+    </tr>`).join("");
+}
+
+function collect(){
+  S.weights={};document.querySelectorAll('[data-w]').forEach(i=>S.weights[i.dataset.w]=parseInt(i.value||0));
+  S.thresholds={sicak:+th_sicak.value,orta:+th_orta.value,zayif:+th_zayif.value};
+  S.negative_filter={min_rate:+nf_rate.value,max_team:+nf_team.value};
+  S.connectors=S.connectors||{};
+  document.querySelectorAll('[data-conn]').forEach(tr=>{
+    const n=tr.dataset.conn;const cfg=S.connectors[n]||{};
+    tr.querySelectorAll('[data-f]').forEach(inp=>{
+      const f=inp.dataset.f;
+      cfg[f]=inp.type==='checkbox'?inp.checked:(inp.type==='number'?+inp.value:inp.value);
+    });
+    S.connectors[n]=cfg;
+  });
+}
+async function save(){
+  collect();
+  const payload={target_countries:S.target_countries,offshore_countries:S.offshore_countries,
+    weights:S.weights,thresholds:S.thresholds,negative_filter:S.negative_filter,connectors:S.connectors};
+  await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  toast.textContent="Kaydedildi ✓";setTimeout(()=>toast.textContent="",2000);
+}
+async function rescoreAll(){
+  await save();
+  const j=await (await fetch("/api/rescore-all",{method:"POST"})).json();
+  toast.textContent=`${j.count} kayıt yeniden skorlandı ✓`;setTimeout(()=>toast.textContent="",3000);
+}
+boot();
+</script>
+</body>
+</html>
