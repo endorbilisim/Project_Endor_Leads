@@ -1,6 +1,4 @@
 .env
-leads.db
-leads.db-journal
 __pycache__/
 *.pyc
 .venv/
