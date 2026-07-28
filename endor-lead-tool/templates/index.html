@@ -100,6 +100,8 @@
     <div class="counter"><b id="c_replied">0</b>cevap gelen</div>
   </div>
   <div class="spacer"></div>
+  <a class="btn" href="/dashboard">📊 Dashboard</a>
+  <button id="btnDuplicates" class="btn" style="display:none;border-color:var(--orta);color:var(--orta)" onclick="openDuplicateDialog()">⚠ Mükerrerler (<span id="dupCount">0</span>)</button>
   <div class="dropdown">
     <button class="btn" onclick="toggleSources(event)">◆ Kaynaklar ▾</button>
     <div class="dropdown-menu" id="sourcesMenu"></div>
@@ -129,17 +131,27 @@
   <label class="muted"><input type="checkbox" id="fHideComp" onchange="currentPage=1;load()"> rakipleri gizle</label>
   <label class="muted" style="color:var(--ai)"><input type="checkbox" id="fAiDivergent" onchange="currentPage=1;load()"> ⚠ AI ayrışanları göster</label>
   <div class="spacer"></div>
-  <input type="search" id="search" placeholder="ajans / domain ara…" oninput="debouncedLoad()">
+  <input type="search" id="search" placeholder="ajans, domain, kurucu, e-posta, konum, ücret ara…" oninput="debouncedLoad()">
 </div>
 
 <!-- Batch Action Bar -->
-<div id="batchBar" style="display:none;align-items:center;gap:12px;padding:8px 18px;background:var(--panel2);border-bottom:1px solid var(--accent)">
+<div id="batchBar" style="display:none;align-items:center;gap:10px;padding:8px 18px;background:var(--panel2);border-bottom:1px solid var(--accent);flex-wrap:wrap">
   <span style="font-weight:600;color:var(--accent);font-size:13px"><b id="selectedCount">0</b> kayıt seçildi:</span>
-  <button onclick="runBatchImpressum()">⛏ Seçilenlerin Impressum'unu Çek</button>
-  <button onclick="runBatchClutchDetails()">◆ Seçilenlerin Clutch Detayını Çek</button>
-  <button onclick="runBatchAiSelected()" style="border-color:var(--ai);color:var(--ai)">🤖 Seçilenleri AI ile Değerlendir (Batch)</button>
+  <button onclick="runBatchImpressum()">⛏ Impressum Çek</button>
+  <button onclick="runBatchClutchDetails()">◆ Clutch Detay Çek</button>
+  <button onclick="runBatchAiSelected()" style="border-color:var(--ai);color:var(--ai)">🤖 AI Değerlendir</button>
+  <div style="display:flex;align-items:center;gap:4px">
+    <button onclick="runBatchAiEmailSelected()" style="border-color:var(--accent);color:var(--accent)">✉️ AI Mail Üret</button>
+    <select id="batchEmailVariantSelect" style="font-size:11px;padding:4px 6px;border-radius:4px;border:1px solid var(--accent);background:var(--panel2);color:var(--text)" title="Toplu AI Mail için varyant seçimi">
+      <option value="">Varyant: Otomatik</option>
+      <option value="A">Varyant A (Tasarım/Strateji)</option>
+      <option value="B">Varyant B (Geliştirici)</option>
+    </select>
+  </div>
+  <button onclick="runBatchGmailDraftSelected()" style="border-color:var(--green);color:var(--green)">📥 Gmail Taslak Oluştur</button>
+  <button onclick="runBatchDelete()" style="border-color:var(--sicak);color:var(--sicak)">🗑 Seçilenleri Sil</button>
   <div style="display:flex;align-items:center;gap:6px">
-    <span class="muted" style="font-size:12px">Toplu Durum Değiştir:</span>
+    <span class="muted" style="font-size:12px">Toplu Durum:</span>
     <select id="batchStatusSelect" onchange="applyBatchStatus(this.value)">
       <option value="">Seçiniz…</option>
       <option value="yeni">yeni</option>
@@ -148,13 +160,14 @@
       <option value="mail gitti">mail gitti</option>
       <option value="takip edildi">takip edildi</option>
       <option value="cevap var">cevap var</option>
-      <option value="red">red</option>
-      <option value="aktarıldı">aktarıldı</option>
+      <option value="firma reddetti">firma reddetti</option>
+      <option value="kazanıldı">kazanıldı</option>
     </select>
   </div>
   <div class="spacer"></div>
   <button onclick="clearSelection()" style="font-size:12px;padding:4px 8px">Seçimi Temizle</button>
 </div>
+
 
 <table>
   <thead><tr>
@@ -260,14 +273,27 @@
   </div>
 </dialog>
 
+<!-- Mükerrer dialog -->
+<dialog id="duplicateDialog" style="width:650px;max-width:95vw;padding:20px;border-radius:12px">
+  <h2 style="margin:0 0 10px">⚠ Mükerrer (Duplicate) Kayıtlar</h2>
+  <p class="muted" style="margin:0 0 14px;font-size:13px">Aşağıdaki alan adlarına sahip mükerrer kayıtlar tespit edildi. Korunacak kaydı seçip birleştirebilirsiniz.</p>
+  <div id="duplicateList" style="max-height:400px;overflow-y:auto"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:14px">
+    <button onclick="duplicateDialog.close()">Kapat</button>
+  </div>
+</dialog>
+
 <!-- Off-canvas -->
+
 <div id="overlay" onclick="closePanel()"></div>
 <div id="panel"><span class="close" onclick="closePanel()">×</span><div id="panelBody"></div></div>
 
 <script>
 const STATUSES = ["yeni","araştırıldı","elendi","mail gitti","takip edildi","cevap var","firma reddetti","kazanıldı"];
 let LEADS = [], countries = new Set();
+let filteredLeadIds = [], currentPanelLeadId = null;
 // varsayılan sıralama: en son eklenen en üstte
+
 let sortState = {col:"created_at", dir:"desc"};
 const NUMERIC_COLS = new Set(["rate_low","size_low","score","ai_score","created_at"]);
 
@@ -527,8 +553,9 @@ async function load(){
   if (search.value.trim()) p.set("q", search.value.trim());
 
   const r = await fetch("/api/leads?" + p); LEADS = await r.json();
-  render(); loadCounters(); buildCountryFilter();
+  render(); loadCounters(); buildCountryFilter(); checkDuplicates();
 }
+
 
 async function loadCounters(){
   try {
@@ -605,7 +632,7 @@ function render(){
     const set = new Set(msStatus.getSelected());
     data = data.filter(l => set.has(l.status));
   } else if (!fHidden.checked) {
-    data = data.filter(l => !["elendi", "firma reddetti", "kazanıldı"].includes(l.status));
+    data = data.filter(l => !["elendi", "kazanıldı"].includes(l.status));
   }
 
   if (msVerdict && msVerdict.getSelected().length && msVerdict.getSelected().length < msVerdict.options.length) {
@@ -641,10 +668,35 @@ function render(){
   }
   if (search.value.trim()) {
     const q = search.value.trim().toLowerCase();
-    data = data.filter(l => (l.name || '').toLowerCase().includes(q) || (l.website || '').toLowerCase().includes(q) || (l.contact_email || '').toLowerCase().includes(q));
+    const terms = q.split(/\s+/).filter(Boolean);
+    data = data.filter(l => {
+      const text = [
+        l.name,
+        l.website,
+        l.contact_name,
+        l.contact_email,
+        l.phone,
+        l.location,
+        l.country,
+        l.hourly_rate,
+        l.team_size,
+        l.min_project,
+        l.founded_year,
+        l.tagline,
+        l.linkedin,
+        l.impressum_url,
+        l.impressum_raw,
+        l.services_json,
+        l.ai_summary,
+        l.notes
+      ].map(v => v || '').join(' ').toLowerCase();
+      return terms.every(term => text.includes(term));
+    });
   }
   data = applySort(data);
+  filteredLeadIds = data.map(l => l.id);
   updateSortIndicators();
+
 
   const totalFiltered = data.length;
   const pSizeVal = document.getElementById("pageSize")?.value || "50";
@@ -675,6 +727,7 @@ function render(){
       <td>${esc(l.team_size)||'<span class="muted">—</span>'}</td>
       <td><span class="tag ${l.verdict||'ELE'}">${l.score} ${l.verdict||''}</span></td>
       <td>${renderAiBadge(l)}</td>
+      <td class="editable" contenteditable onclick="event.stopPropagation()" onblur="saveField(${l.id},'contact_name',this.textContent)">${esc(l.contact_name)}</td>
       <td class="editable" contenteditable onclick="event.stopPropagation()" onblur="saveField(${l.id},'contact_email',this.textContent)">${esc(l.contact_email)}</td>
       <td onclick="event.stopPropagation()">
         <select class="status-pill" style="${getStatusPillStyle(l.status)}" onchange="setStatus(${l.id},this.value);this.style.cssText=getStatusPillStyle(this.value)">
@@ -802,10 +855,25 @@ async function importCsv(input){
 // --- off-canvas ---
 async function openPanel(id){
   const l=LEADS.find(x=>x.id===id); if(!l) return;
+  currentPanelLeadId = id;
+  const cIdx = filteredLeadIds.indexOf(id);
+  const totCnt = filteredLeadIds.length;
+  const pId = cIdx > 0 ? filteredLeadIds[cIdx - 1] : null;
+  const nId = (cIdx >= 0 && cIdx < totCnt - 1) ? filteredLeadIds[cIdx + 1] : null;
+
+  const navHtml = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <button onclick="openPanel(${pId})" ${pId === null ? 'disabled style="opacity:0.35;cursor:not-allowed"' : ''}>← Önceki</button>
+      <span class="muted" style="font-size:12px;font-weight:600">${cIdx >= 0 ? cIdx + 1 : 0} / ${totCnt}</span>
+      <button onclick="openPanel(${nId})" ${nId === null ? 'disabled style="opacity:0.35;cursor:not-allowed"' : ''}>Sonraki →</button>
+    </div>
+  `;
+
   let bd = l.score_breakdown || {};
   if (typeof bd === 'string') {
     try { bd = JSON.parse(bd); } catch(e) { bd = {}; }
   }
+
   const rows=Object.entries(bd).filter(([k])=>!k.startsWith("_"))
     .map(([k,v])=>`<div class="kv"><span>${esc(k)}</span><b>${v}</b></div>`).join("")||'<span class="muted">Skor kırılımı yok</span>';
   const ele=(bd._ele_reasons||[]).length?`<div class="muted">ELE sebebi: ${bd._ele_reasons.map(esc).join(", ")}</div>`:"";
@@ -903,9 +971,16 @@ async function openPanel(id){
           <div style="font-size:12px;white-space:pre-wrap;color:var(--muted);background:var(--panel2);padding:8px;border-radius:4px">${esc(l.ai_followup_body)}</div>
         </div>
 
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);flex-wrap:wrap;gap:6px">
           <span>Oluşturulma: ${fmtDate(l.ai_email_at)}</span>
-          <button onclick="generateAiEmailOne(${l.id})" style="font-size:11px;padding:3px 8px">🔄 Yeniden Üret</button>
+          <div style="display:flex;align-items:center;gap:6px">
+            <select id="singleEmailVariantSelect_${l.id}" style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+              <option value="" ${!l.ai_email_variant ? 'selected' : ''}>Varyant: Otomatik</option>
+              <option value="A" ${l.ai_email_variant === 'A' ? 'selected' : ''}>Varyant A (Tasarım/Strateji)</option>
+              <option value="B" ${l.ai_email_variant === 'B' ? 'selected' : ''}>Varyant B (Geliştirici)</option>
+            </select>
+            <button onclick="generateAiEmailOne(${l.id})" style="font-size:11px;padding:4px 9px">🔄 Yeniden Üret</button>
+          </div>
         </div>
       </div>
     `;
@@ -914,25 +989,41 @@ async function openPanel(id){
       <div class="section" style="background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--sicak);margin-top:16px">
         <h3 style="margin:0 0 6px;color:var(--sicak)">✉️ AI Outreach & Takip Kiti</h3>
         <p class="muted" style="font-size:12px;margin:0 0 8px">Outreach kiti üretilirken bir hata oluştu veya API anahtarı eksik.</p>
-        <button onclick="generateAiEmailOne(${l.id})" style="font-size:12px">✉️ Yeniden Dene</button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <select id="singleEmailVariantSelect_${l.id}" style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+            <option value="">Varyant: Otomatik</option>
+            <option value="A">Varyant A (Tasarım/Strateji)</option>
+            <option value="B">Varyant B (Geliştirici)</option>
+          </select>
+          <button onclick="generateAiEmailOne(${l.id})" style="font-size:12px">✉️ Yeniden Dene</button>
+        </div>
       </div>
     `;
   } else {
     aiEmailSection = `
       <div class="section" style="background:var(--panel2);padding:12px;border-radius:8px;border:1px solid var(--border);margin-top:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div>
             <h3 style="margin:0;color:var(--accent)">✉️ AI Outreach & Takip Kiti</h3>
             <span class="muted" style="font-size:12px">E-posta, LinkedIn notu ve takip metni üretilebilir.</span>
           </div>
-          <button onclick="generateAiEmailOne(${l.id})" style="border-color:var(--accent);color:var(--accent)">✉️ AI Mail & Takip Kiti Üret</button>
+          <div style="display:flex;align-items:center;gap:6px">
+            <select id="singleEmailVariantSelect_${l.id}" style="font-size:11px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+              <option value="">Varyant: Otomatik</option>
+              <option value="A">Varyant A (Tasarım/Strateji)</option>
+              <option value="B">Varyant B (Geliştirici)</option>
+            </select>
+            <button onclick="generateAiEmailOne(${l.id})" style="border-color:var(--accent);color:var(--accent)">✉️ AI Mail Üret</button>
+          </div>
         </div>
       </div>
     `;
   }
 
   panelBody.innerHTML=`
+    ${navHtml}
     <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+
       <h2 style="margin:0 0 4px">${esc(l.name)}</h2>
       <div class="muted">${esc(l.location)||''} · <span class="tag ${l.verdict||'ELE'}">${l.score} ${l.verdict||''}</span></div>
     </div>
@@ -1027,11 +1118,16 @@ function copyText(text, btn) {
   });
 }
 
-async function generateAiEmailOne(id) {
+async function generateAiEmailOne(id, forcedVariant) {
   const btn = event?.target;
+  const variant = forcedVariant || document.getElementById(`singleEmailVariantSelect_${id}`)?.value || null;
   if (btn) { btn.disabled = true; btn.textContent = "✉️ Üretiliyor..."; }
   try {
-    const r = await fetch(`/api/lead/${id}/ai-email`, { method: "POST" });
+    const r = await fetch(`/api/lead/${id}/ai-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ variant })
+    });
     const data = await r.json();
     if (data.ok && data.lead) {
       const idx = LEADS.findIndex(x => x.id === id);
@@ -1108,22 +1204,37 @@ async function runImpressum(){
   openProgressModal();
   pollWorker();
 }
-async function aiEvaluateOne(id){
+async function aiEvaluateOne(id, btnElem){
+  let btn = btnElem || event?.target;
+  let oldText = "";
+  if (btn) {
+    oldText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "⏳ Değerlendiriliyor...";
+  }
   try {
     const r = await fetch(`/api/lead/${id}/ai-evaluate`, { method: "POST" });
     const j = await r.json();
     if (!r.ok || !j.ok) {
-      alert("⚠️ AI Değerlendirmesi yapılamadı (LLM API key ayarlanmamış olabilir).");
+      alert("⚠️ AI Değerlendirmesi yapılamadı: " + (j.error || "Sunucu hatası"));
       return;
     }
     await load();
     openPanel(id);
   } catch(e) {
     alert("⚠️ AI Değerlendirmesi hatası: " + e.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = oldText || "🤖 AI ile Değerlendir";
+    }
   }
 }
 
 async function runBatchAi(){
+  if (selectedIds.size > 0) {
+    return runBatchAiSelected();
+  }
   const j = await (await fetch("/api/leads/ai-evaluate-batch", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1147,6 +1258,128 @@ async function runBatchAiSelected(){
   openProgressModal();
   pollWorker();
 }
+
+async function runBatchDelete() {
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  if (!confirm(`Seçili ${ids.length} adet lead ve ilişkili tüm notları kalıcı olarak silinsin mi?`)) return;
+  const res = await (await fetch("/api/leads/batch-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids })
+  })).json();
+  if (res.ok) {
+    clearSelection();
+    load();
+  } else {
+    alert("Silme hatası: " + (res.error || "Bilinmeyen hata"));
+  }
+}
+
+async function runBatchAiEmailSelected() {
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  const variant = document.getElementById("batchEmailVariantSelect")?.value || null;
+  const j = await (await fetch("/api/leads/ai-email-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, variant })
+  })).json();
+  if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+
+async function runBatchGmailDraftSelected() {
+  const ids = Array.from(selectedIds);
+  if (!ids.length) return;
+  if (!confirm(`Seçili ${ids.length} adet lead için Gmail taslağı oluşturulacak. Devam edilsin mi?`)) return;
+  const j = await (await fetch("/api/leads/gmail-draft-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids })
+  })).json();
+  if (document.getElementById("progressSpinner")) document.getElementById("progressSpinner").style.display = "inline-block";
+  openProgressModal();
+  pollWorker();
+}
+
+let DUPLICATE_GROUPS = [];
+
+async function checkDuplicates() {
+  try {
+    const res = await (await fetch("/api/leads/duplicates")).json();
+    DUPLICATE_GROUPS = res.groups || [];
+    const btn = document.getElementById("btnDuplicates");
+    const countEl = document.getElementById("dupCount");
+    if (btn && countEl) {
+      if (DUPLICATE_GROUPS.length > 0) {
+        countEl.textContent = DUPLICATE_GROUPS.length;
+        btn.style.display = "inline-block";
+      } else {
+        btn.style.display = "none";
+      }
+    }
+  } catch(e) {
+    console.error("checkDuplicates error:", e);
+  }
+}
+
+function openDuplicateDialog() {
+  renderDuplicates();
+  duplicateDialog.showModal();
+}
+
+function renderDuplicates() {
+  const container = document.getElementById("duplicateList");
+  if (!container) return;
+  if (!DUPLICATE_GROUPS.length) {
+    container.innerHTML = '<p class="muted">Mükerrer kayıt bulunamadı.</p>';
+    return;
+  }
+  container.innerHTML = DUPLICATE_GROUPS.map((g, gIdx) => `
+    <div style="background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-weight:600;color:var(--accent);margin-bottom:8px">🌐 ${esc(g.domain)} (${g.leads.length} kayıt)</div>
+      ${g.leads.map((l, lIdx) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)">
+          <input type="radio" name="dup_keep_${gIdx}" value="${l.id}" ${lIdx === 0 ? 'checked' : ''}>
+          <span style="font-weight:500;min-width:120px">${esc(l.name)}</span>
+          <span class="tag ${l.verdict || 'ELE'}" style="font-size:10px">${l.score} ${l.verdict || ''}</span>
+          <span class="muted" style="font-size:11px">Kaynak: ${esc(l.source)}</span>
+          <span class="muted" style="font-size:11px">Eklendi: ${fmtDate(l.created_at)}</span>
+        </div>
+      `).join('')}
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button onclick="mergeGroup(${gIdx})" style="font-size:12px">🔀 Seçileni Koru ve Birleştir</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function mergeGroup(gIdx) {
+  const group = DUPLICATE_GROUPS[gIdx];
+  if (!group) return;
+  const checkedRadio = document.querySelector(`input[name="dup_keep_${gIdx}"]:checked`);
+  if (!checkedRadio) return;
+  const keepId = parseInt(checkedRadio.value, 10);
+  const deleteIds = group.leads.map(l => l.id).filter(id => id !== keepId);
+  
+  if (!confirm(`Seçilen kayıt (ID: ${keepId}) korunup diğer ${deleteIds.length} kayıt silinecektir. Notlar korunacaktır. Onaylıyor musunuz?`)) return;
+
+  const res = await (await fetch("/api/leads/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keep_id: keepId, delete_ids: deleteIds })
+  })).json();
+
+  if (res.ok) {
+    checkDuplicates().then(() => renderDuplicates());
+    load();
+  } else {
+    alert("Birleştirme hatası: " + (res.error || "Bilinmeyen hata"));
+  }
+}
+
 
 async function impressumOne(id){
   await fetch(`/api/lead/${id}/impressum`,{method:"POST"});

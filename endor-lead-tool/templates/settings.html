@@ -58,6 +58,17 @@
     <div class="grid" id="weightsGrid"></div>
   </div>
 
+  <div class="card" style="border-color:var(--accent)">
+    <h2 style="color:var(--accent)">🤖 OpenAI / LLM API Ayarları</h2>
+    <p>AI ile lead değerlendirmesi ve kişiselleştirilmiş outreach e-postası üretimi için OpenAI API Key.</p>
+    <div class="grid" style="max-width:580px">
+      <label>OpenAI API Key</label>
+      <input type="password" id="llm_api_key" placeholder="sk-proj-..." style="width:280px" onfocus="this.type='text'" onblur="this.type='password'">
+      <label>LLM Modeli</label>
+      <input type="text" id="llm_model" placeholder="gpt-4.1-nano" style="width:180px">
+    </div>
+  </div>
+
   <div class="card">
     <h2>Eşikler & negatif filtre</h2>
     <div class="grid">
@@ -74,6 +85,18 @@
     <p>Teknik ayarlar. Yeni connector eklenince otomatik listelenir.</p>
     <table><thead><tr><th>Kaynak</th><th>Aktif</th><th>Bekleme (min–max sn)</th><th>User-Agent</th></tr></thead>
     <tbody id="connBody"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Veritabanı Yedekleme & Geri Yükleme</h2>
+    <p>Mevcut veritabanının yedeğini alabilir veya eski bir yedeğe geri dönebilirsiniz.</p>
+    <div style="margin-bottom:12px">
+      <button class="btn-primary" onclick="createBackup()">💾 Şimdi Yedek Al</button>
+    </div>
+    <table>
+      <thead><tr><th>Yedek Dosyası</th><th>Boyut</th><th>Tarih</th><th>İşlem</th></tr></thead>
+      <tbody id="backupBody"></tbody>
+    </table>
   </div>
 
   <div class="save-row">
@@ -97,7 +120,10 @@ async function boot(){
   renderWeights();
   th_sicak.value=S.thresholds.sicak; th_orta.value=S.thresholds.orta; th_zayif.value=S.thresholds.zayif;
   nf_rate.value=S.negative_filter.min_rate; nf_team.value=S.negative_filter.max_team;
+  if (S.llm_api_key) llm_api_key.value = S.llm_api_key;
+  llm_model.value = S.llm_model || 'gpt-4.1-nano';
   renderConnectors();
+  loadBackups();
 }
 function esc(s){return(s??"").toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
@@ -125,6 +151,57 @@ function renderConnectors(){
     </tr>`).join("");
 }
 
+async function loadBackups(){
+  try {
+    const res = await (await fetch("/api/backups")).json();
+    const list = res.backups || [];
+    backupBody.innerHTML = list.length ? list.map(b => `
+      <tr>
+        <td>${esc(b.filename)}</td>
+        <td>${b.size_kb} KB</td>
+        <td>${b.created_at.replace('T', ' ')}</td>
+        <td><button style="padding:3px 8px;font-size:11px;color:var(--sicak)" onclick="restoreBackup('${esc(b.filename)}')">Geri Yükle</button></td>
+      </tr>
+    `).join("") : '<tr><td colspan="4" style="color:var(--muted)">Henüz alınmış yedek yok</td></tr>';
+  } catch(e) {
+    console.error("loadBackups error:", e);
+  }
+}
+
+async function createBackup(){
+  try {
+    const res = await (await fetch("/api/backup", {method: "POST"})).json();
+    if (res.ok) {
+      toast.textContent = `Yedek alındı: ${res.filename} (${res.size_kb} KB) ✓`;
+      setTimeout(() => toast.textContent = "", 3000);
+      loadBackups();
+    } else {
+      alert("Yedekleme hatası: " + (res.error || "Bilinmeyen hata"));
+    }
+  } catch(e) {
+    alert("Hata oluştu: " + e.message);
+  }
+}
+
+async function restoreBackup(filename){
+  if (!confirm(`'${filename}' dosyasına geri dönmek istediğinizden emin misiniz?\nMevcut veritabanınızın otomatik güvenlik kopyası alınacaktır.`)) return;
+  try {
+    const res = await (await fetch("/api/restore", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({filename})
+    })).json();
+    if (res.ok) {
+      alert("✓ Veritabanı başarıyla geri yüklendi!");
+      loadBackups();
+    } else {
+      alert("Geri yükleme hatası: " + (res.error || "Bilinmeyen hata"));
+    }
+  } catch(e) {
+    alert("Hata oluştu: " + e.message);
+  }
+}
+
 function collect(){
   S.weights={};document.querySelectorAll('[data-w]').forEach(i=>S.weights[i.dataset.w]=parseInt(i.value||0));
   S.thresholds={sicak:+th_sicak.value,orta:+th_orta.value,zayif:+th_zayif.value};
@@ -142,7 +219,8 @@ function collect(){
 async function save(){
   collect();
   const payload={target_countries:S.target_countries,offshore_countries:S.offshore_countries,
-    weights:S.weights,thresholds:S.thresholds,negative_filter:S.negative_filter,connectors:S.connectors};
+    weights:S.weights,thresholds:S.thresholds,negative_filter:S.negative_filter,connectors:S.connectors,
+    llm_api_key:llm_api_key.value.trim(),llm_model:llm_model.value.trim()};
   await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
   toast.textContent="Kaydedildi ✓";setTimeout(()=>toast.textContent="",2000);
 }
@@ -153,5 +231,6 @@ async function rescoreAll(){
 }
 boot();
 </script>
+
 </body>
 </html>

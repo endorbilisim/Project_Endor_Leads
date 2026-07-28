@@ -10,6 +10,7 @@ import re
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 # Uluslararası formatlı telefon: +49 30 1234567 / 0049... / +47 ...
 PHONE_RE = re.compile(r"(?:\+|00)\d[\d\s().\-/]{6,}\d")
+LINKEDIN_RE = re.compile(r"https?://(?:www\.)?linkedin\.com/(?:company|in)/[\w\-]+/?", re.I)
 GENERIC_PREFIXES = ("info@", "office@", "hello@", "kontakt@", "mail@",
                     "contact@", "hallo@", "post@", "moin@", "hej@")
 
@@ -62,10 +63,10 @@ def _find_emails(text: str) -> list[str]:
 
 
 def extract(text: str) -> dict:
-    """Düz metinden isim/e-posta/telefon çıkar."""
+    """Düz metinden isim/e-posta/telefon/linkedin çıkar."""
     text = text or ""
     result = {"name": None, "role": None, "email": None, "phone": None,
-              "email_is_generic": 0, "method": "heuristic"}
+              "linkedin": None, "email_is_generic": 0, "method": "heuristic"}
 
     # --- E-posta ---
     emails = _find_emails(text)
@@ -80,7 +81,13 @@ def extract(text: str) -> dict:
     if phones:
         result["phone"] = re.sub(r"\s{2,}", " ", phones[0]).strip()
 
+    # --- LinkedIn ---
+    li = LINKEDIN_RE.search(text)
+    if li:
+        result["linkedin"] = li.group(0).rstrip("/")
+
     # --- İsim: etiket tabanlı ---
+
     for label in NAME_LABELS:
         # "Geschäftsführer: Max Mustermann" veya "Geschäftsführer\nMax Mustermann"
         m = re.search(re.escape(label) + r"\s*[:\-]?\s*\n?\s*(" + NAME_PATTERN.pattern + r")", text)

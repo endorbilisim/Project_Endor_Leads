@@ -7,4 +7,6 @@ uploads/
 saved_html/
 client_secret.json
 gmail_tokens.json
-
+backups/
+leads.db
+*.db

@@ -19,11 +19,11 @@ logger = logging.getLogger("endor.ai_email")
 SYSTEM_PROMPT = """Sen Endor (https://endor.agency/en) için çalışan kıdemli B2B Outreach ve İş Geliştirme Uzmanısın.
 Görevin, sana sunulan ajans verilerini analiz ederek ajansa özel 3 parçalı bir Outreach Kiti üretmektir:
 1. İlk E-posta (Subject + Body)
-2. LinkedIn Bağlantı İsteği Notu (LinkedIn Invite Note - maks 280 karakter)
-3. Takip E-postası (Follow-up Mail - 4-5 gün sonra aynı thread'e yanıt formatı)
+2. LinkedIn Bağlantı İsteği Notu (LinkedIn Invite Note)
+3. Takip E-postası (Follow-up Mail)
 
 ZORUNLU KURALLAR (HİÇBİR KOŞULDA İHLAL EDİLEMEZ):
-1. EM DASH (`—` / Unicode \u2014) KULLANIMI KESİNLİKLE YASAKTIR. Cümle aralarında em dash yerine virgül, nokta veya standart kısa tire (` - `) kullan.
+1. EM DASH (`—`) VEYA CÜMLE ARASI TİRE (` - `) KULLANIMI KESİNLİKLE YASAKTIR. Cümle ve yan cümlecik aralarında MUTLAKA virgül (`,`) veya nokta (`.`) kullan. Tire (`-`) sadece "white-label" gibi birleşik sözcüklerde zorunlu olduğunda kullanılabilir.
 2. İMZA / KAPANIŞ KURALI: Mail gövdesinin sonuna "Best, Burak", "Best regards" veya "https://endor.agency" gibi imza satırları KESİNLİKLE EKLENMEYECEKTİR. Kullanıcının Gmail şablonunda otomatik imza kartı yer almaktadır.
 3. ZORUNLU AKSİYON ÇAĞRISI (CTA): Mail gövdesi MUTLAKA en sonda ayrı bir paragraf olarak aksiyon çağrısı sorusuyla bitecektir (örn: "Worth a short call next week to see if we're a fit?").
 
@@ -33,9 +33,10 @@ ZORUNLU KURALLAR (HİÇBİR KOŞULDA İHLAL EDİLEMEZ):
    - Şirket Adı Kullanımı: Hitapta ve mail gövdesinde "GmbH", "Inc", "Interactive Marketing" gibi resmi hukuki unvanları ASLA kullanma; sadece sade marka adını kullan (Örn: "LIMESODA Interactive Marketing" yerine "LIMESODA").
 
 5. VARYANT MANTIĞI:
-   - Varyant A (Geliştirme Oranı < %50 ise): Tasarım/Strateji kancası ("Came across {{agency_name}} among the {{city_or_region}} agencies that lead with design and strategy rather than heavy in-house dev - that's exactly who we partner best with.")
-   - Varyant B (Geliştirme Oranı >= %50 ise): Genelci / Dev haritalama kancası ("Came across {{agency_name}} while mapping strong {{city_or_region}} agencies - reaching out because you're exactly the profile we partner with.")
-   - Değer Önermesi Cümlesi (Her iki varyantta da): "We run Endor, an Istanbul-based dev studio that works white-label for agencies like yours - you own strategy, design and the client; we're the development arm behind the scenes, and your name stays on everything." (KESİNLİKLE "I run Endor" DEĞİL, "We run Endor" kullanılacaktır).
+   - Varyant A (Geliştirme Oranı < %50 ise veya forced_variant="A"): Tasarım/Strateji kancası ("Came across {{agency_name}} among the {{city_or_region}} agencies that lead with design and strategy rather than heavy in-house dev, that's exactly who we partner best with.")
+   - Varyant B (Geliştirme Oranı >= %50 ise veya forced_variant="B"): Genelci / Dev haritalama kancası ("Came across {{agency_name}} while mapping strong {{city_or_region}} agencies, reaching out because you're exactly the profile we partner with.")
+   - Eğer forced_variant ("A" veya "B") olarak verilmişse, dev_share oranına bakılmaksızın MUTLAKA istenen varyantı seç ve çıktıdaki "variant" değerine de o harfi yaz.
+   - Değer Önermesi Cümlesi (Her iki varyantta da): "We run Endor, an Istanbul-based dev studio that handles enterprise & white-label dev behind strict NDAs, so your agency owns the client 100% and your name stays on everything." (KESİNLİKLE "I run Endor" DEĞİL, "We run Endor" kullanılacaktır).
 
 6. SPAM ENGELLEME: "free", "cheap", "offer", "discount" gibi spam sözcükleri ASLA kullanma.
 
@@ -43,9 +44,9 @@ ZORUNLU KURALLAR (HİÇBİR KOŞULDA İHLAL EDİLEMEZ):
 {
   "variant": "A" veya "B",
   "subject": "White-label dev partner for AgencyName?",
-  "body": "Hi LIMESODA team,\n\nCame across LIMESODA among the Vienna agencies that lead with design and strategy rather than heavy in-house dev - that's exactly who we partner best with.\n\nWe run Endor, an Istanbul-based dev studio that works white-label for agencies like yours - you own strategy, design and the client; we're the development arm behind the scenes, and your name stays on everything.\n\nWorth a short call next week to see if we're a fit?",
-  "linkedin_note": "Hi LIMESODA team, reached out by email last week about Endor (white-label dev for agencies). No worries if the timing's off; just thought it'd be good to connect.",
-  "followup_body": "Hi LIMESODA team, floating this back up in case it slipped through. Even a quick \"not now\" is helpful - happy to circle back later if the timing's better."
+  "body": "Hi LIMESODA team,\n\nCame across LIMESODA among the Vienna agencies that lead with design and strategy rather than heavy in-house dev, that's exactly who we partner best with.\n\nWe run Endor, an Istanbul-based dev studio that handles enterprise & white-label dev behind strict NDAs, so your agency owns the client 100% and your name stays on everything.\n\nWorth a short call next week to see if we're a fit?",
+  "linkedin_note": "Hi LIMESODA team, reached out by email last week about Endor (white-label dev for agencies). No worries if the timing's off, just thought it'd be good to connect.",
+  "followup_body": "Hi LIMESODA team, floating this back up in case it slipped through. Even a quick \"not now\" is helpful, happy to circle back later if the timing's better."
 }
 """
 
@@ -79,9 +80,10 @@ def _dev_share(services_json: str | dict | None) -> float:
 def _strip_em_dash(text: str | None) -> str:
     if not text:
         return ""
-    # Em dash (—) ve en dash (–) karakterlerini standart " - " veya virgül ile değiştir
-    cleaned = text.replace("—", " - ").replace("–", " - ")
-    cleaned = re.sub(r"\s+-\s+", " - ", cleaned)
+    # Em dash (—), en dash (–) ve cümle arası tireleri virgülle değiştir ("white-label" gibi kelime içi tireler korunur)
+    cleaned = text.replace("—", ", ").replace("–", ", ")
+    cleaned = re.sub(r"\s+-\s+", ", ", cleaned)
+    cleaned = re.sub(r",\s*,", ",", cleaned)
     return cleaned.strip()
 
 
@@ -121,9 +123,25 @@ def _clean_agency_name(name: str | None) -> str:
     return cleaned or name
 
 
-def generate_lead_email(lead: dict) -> dict:
-    """Tek bir lead için AI Outreach Kiti (E-posta, LinkedIn, Follow-up) üretir."""
-    api_key = os.getenv("LLM_API_KEY")
+def _get_api_key() -> str | None:
+    key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if key and key.strip():
+        return key.strip()
+    try:
+        import db
+        conn = db.get_conn()
+        db_key = db.get_setting(conn, "llm_api_key")
+        conn.close()
+        if db_key and str(db_key).strip():
+            return str(db_key).strip()
+    except Exception:
+        pass
+    return None
+
+
+def generate_lead_ai_email(lead: dict, forced_variant: str | None = None) -> dict:
+    """Bir lead verisi için AI Outreach Kiti (E-posta, LinkedIn, Follow-up) üretir."""
+    api_key = _get_api_key()
     if not api_key:
         return {
             "ai_email_status": "manual",
@@ -131,10 +149,13 @@ def generate_lead_email(lead: dict) -> dict:
         }
 
     base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model = os.getenv("LLM_MODEL", "gpt-4.1-nano")
+    model = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
     dev_ratio = _dev_share(lead.get("services_json"))
-    default_variant = "A" if dev_ratio < 50.0 else "B"
+    if forced_variant in ("A", "B"):
+        default_variant = forced_variant
+    else:
+        default_variant = "A" if dev_ratio < 50.0 else "B"
 
     clean_name = _clean_agency_name(lead.get("name"))
 
@@ -146,6 +167,7 @@ def generate_lead_email(lead: dict) -> dict:
         "country": lead.get("country"),
         "dev_share": dev_ratio,
         "default_variant": default_variant,
+        "forced_variant": forced_variant if forced_variant in ("A", "B") else None,
         "tagline": lead.get("tagline"),
         "ai_angle": lead.get("ai_angle"),
     }

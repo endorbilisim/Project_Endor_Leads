@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Endor Lead Tool</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b22; --panel2:#1e242d; --border:#2a323d;
+    --text:#e6eaf0; --muted:#8b97a7; --accent:#4f8cff;
+    --sicak:#e5484d; --orta:#f5a623; --zayif:#8b97a7; --ele:#4b5563;
+    --green:#2fbf71; --ai:#6366f1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  header{display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--panel)}
+  header h1{font-size:16px;margin:0}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px 18px}
+
+  /* Metric cards */
+  .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+  .m-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .m-card .lbl{font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em}
+  .m-card .val{font-size:24px;font-weight:700;color:var(--text)}
+  .m-card .sub{font-size:12px;color:var(--green);margin-top:4px}
+
+  /* Pipeline Kanban */
+  .section-title{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .pipeline-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:28px}
+  .pipe-col{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+  .pipe-col .p-title{font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  .pipe-col .p-num{font-size:20px;font-weight:700;color:var(--accent)}
+
+  /* 2 Column Layout */
+  .two-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:768px){.two-cols{grid-template-columns:1fr}}
+  .card-box{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px}
+
+  /* Country Bar Chart */
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px}
+  .bar-row .c-name{width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+  .bar-row .c-bar-bg{flex:1;background:var(--panel2);height:12px;border-radius:6px;overflow:hidden}
+  .bar-row .c-bar-fill{background:var(--accent);height:100%;border-radius:6px;transition:width .4s}
+  .bar-row .c-val{width:30px;text-align:right;font-size:12px;font-weight:600}
+
+  /* Weekly Trend Spark Chart */
+  .trend-bars{display:flex;align-items:flex-end;gap:12px;height:140px;padding-top:20px}
+  .t-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end}
+  .t-bar{width:100%;max-width:32px;background:linear-gradient(180deg, var(--accent), var(--panel2));border-radius:4px 4px 0 0;min-height:4px;transition:height .4s}
+  .t-lbl{font-size:10px;color:var(--muted);margin-top:6px;white-space:nowrap}
+  .t-num{font-size:11px;font-weight:600;margin-bottom:4px;color:var(--text)}
+</style>
+</head>
+<body>
+<header>
+  <a href="/">← Ana Panele Dön</a>
+  <h1>📊 Satış & Lead Özet Göstergesi (Dashboard)</h1>
+</header>
+
+<div class="wrap">
+  <!-- Metrik Kartları -->
+  <div class="metrics-grid">
+    <div class="m-card">
+      <div class="lbl">Toplam Lead</div>
+      <div class="val" id="mTotal">0</div>
+      <div class="sub">Veritabanındaki tüm kayıtlar</div>
+    </div>
+    <div class="m-card">
+      <div class="lbl">SICAK Lead</div>
+      <div class="val" style="color:var(--sicak)" id="mSicak">0</div>
+      <div class="sub">75+ skorlu öncelikli hedef</div>
+    </div>
+    <div class="m-card">
+      <div class="lbl">E-posta Atılma Oranı</div>
+      <div class="val" id="mEmailRate">%0</div>
+      <div class="sub" id="mEmailedSub">0 mail atıldı</div>
+    </div>
+    <div class="m-card">
+      <div class="lbl">Cevap Dönüşüm Oranı</div>
+      <div class="val" style="color:var(--green)" id="mReplyRate">%0</div>
+      <div class="sub" id="mRepliedSub">0 cevap / 0 kazanıldı</div>
+    </div>
+  </div>
+
+  <!-- Pipeline Kanban Özet -->
+  <h2 class="section-title">📌 İş Akışı (Pipeline) Durumu</h2>
+  <div class="pipeline-grid" id="pipelineGrid"></div>
+
+  <!-- Alt İki Kolon: Ülkeler & Haftalık Trend -->
+  <div class="two-cols">
+    <div class="card-box">
+      <h2 class="section-title">🌍 En Çok Lead Bulunan Ülkeler</h2>
+      <div id="countryList"></div>
+    </div>
+
+    <div class="card-box">
+      <h2 class="section-title">📈 Son 8 Hafta Lead Ekleme Trendi</h2>
+      <div class="trend-bars" id="weeklyTrend"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadDashboard() {
+  try {
+    const data = await (await fetch("/api/dashboard")).json();
+    const t = data.totals;
+
+    document.getElementById("mTotal").textContent = t.total;
+    document.getElementById("mSicak").textContent = t.sicak;
+    document.getElementById("mEmailRate").textContent = `%${t.email_rate}`;
+    document.getElementById("mEmailedSub").textContent = `${t.emailed} firmaya mail atıldı`;
+    document.getElementById("mReplyRate").textContent = `%${t.reply_rate}`;
+    document.getElementById("mRepliedSub").textContent = `${t.replied} cevap · ${t.won} kazanıldı`;
+
+    // Pipeline
+    const statuses = [
+      { key: "yeni", label: "Yeni", color: "var(--text)" },
+      { key: "araştırıldı", label: "Araştırıldı", color: "var(--accent)" },
+      { key: "mail gitti", label: "Mail Gitti", color: "#818cf8" },
+      { key: "takip edildi", label: "Takip Edildi", color: "var(--orta)" },
+      { key: "cevap var", label: "Cevap Var", color: "var(--green)" },
+      { key: "kazanıldı", label: "Kazanıldı", color: "#10b981" }
+    ];
+
+    document.getElementById("pipelineGrid").innerHTML = statuses.map(s => {
+      const cnt = data.pipeline[s.key] || 0;
+      return `
+        <div class="pipe-col">
+          <div class="p-title">${s.label}</div>
+          <div class="p-num" style="color:${s.color}">${cnt}</div>
+        </div>
+      `;
+    }).join("");
+
+    // Ülkeler
+    const maxCountry = data.countries.length ? data.countries[0].count : 1;
+    document.getElementById("countryList").innerHTML = data.countries.length ? data.countries.map(c => {
+      const pct = Math.round((c.count / maxCountry) * 100);
+      return `
+        <div class="bar-row">
+          <div class="c-name" title="${c.country}">${c.country}</div>
+          <div class="c-bar-bg"><div class="c-bar-fill" style="width:${pct}%"></div></div>
+          <div class="c-val">${c.count}</div>
+        </div>
+      `;
+    }).join("") : '<div style="color:var(--muted)">Henüz ülke verisi yok</div>';
+
+    // Haftalık Trend
+    const maxWeek = data.weekly.length ? Math.max(...data.weekly.map(w => w.created)) : 1;
+    document.getElementById("weeklyTrend").innerHTML = data.weekly.length ? data.weekly.map(w => {
+      const hPct = Math.max(8, Math.round((w.created / maxWeek) * 100));
+      return `
+        <div class="t-bar-wrap">
+          <div class="t-num">${w.created}</div>
+          <div class="t-bar" style="height:${hPct}%"></div>
+          <div class="t-lbl">${w.week}</div>
+        </div>
+      `;
+    }).join("") : '<div style="color:var(--muted)">Haftalık veri yok</div>';
+
+  } catch(e) {
+    console.error("Dashboard yüklenirken hata:", e);
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

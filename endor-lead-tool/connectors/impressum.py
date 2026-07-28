@@ -93,7 +93,7 @@ class ImpressumConnector(Connector):
         out = {
             "impressum_status": "error", "impressum_url": None, "impressum_raw": None,
             "impressum_method": None, "contact_name": None, "contact_email": None,
-            "phone": None, "email_is_generic": 0, "hiring_devs": 0,
+            "phone": None, "linkedin": None, "email_is_generic": 0, "hiring_devs": 0,
         }
         base = website if re.match(r"^https?://", website or "") else "http://" + (website or "")
         try:
@@ -129,8 +129,14 @@ class ImpressumConnector(Connector):
         out["contact_name"] = h["name"]
         out["contact_email"] = h["email"]
         out["phone"] = h["phone"]
+        out["linkedin"] = h.get("linkedin")
+        if not out["linkedin"]:
+            li = heuristic.LINKEDIN_RE.search(home)
+            if li:
+                out["linkedin"] = li.group(0).rstrip("/")
         out["email_is_generic"] = h["email_is_generic"]
         out["impressum_method"] = "heuristic"
+
 
         # Adım 4: LLM fallback tetiği — isim yok VEYA sadece genel mail
         need_llm = (not h["name"]) or (h["email"] and h["email_is_generic"])

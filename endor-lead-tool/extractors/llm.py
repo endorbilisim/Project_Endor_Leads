@@ -30,8 +30,24 @@ SYSTEM_PROMPT = (
 EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 
+def _get_api_key() -> str | None:
+    key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if key and key.strip():
+        return key.strip()
+    try:
+        import db
+        conn = db.get_conn()
+        db_key = db.get_setting(conn, "llm_api_key")
+        conn.close()
+        if db_key and str(db_key).strip():
+            return str(db_key).strip()
+    except Exception:
+        pass
+    return None
+
+
 def is_available() -> bool:
-    return bool(os.getenv("LLM_API_KEY"))
+    return bool(_get_api_key())
 
 
 def _clip(text: str) -> str:
@@ -49,11 +65,11 @@ def _clip(text: str) -> str:
 
 def _call_llm(text: str) -> dict | None:
     """OpenAI uyumlu chat/completions çağrısı. Hata/eksik key -> None."""
-    api_key = os.getenv("LLM_API_KEY")
+    api_key = _get_api_key()
     if not api_key:
         return None
     base_url = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model = os.getenv("LLM_MODEL", "gpt-4.1-nano")
+    model = os.getenv("LLM_MODEL", "gpt-4o-mini")
     clipped = _clip(text)
 
     try:
